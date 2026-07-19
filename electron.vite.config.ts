@@ -2,9 +2,16 @@ import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
+const macDiff = resolve('diff/mac')
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    resolve: {
+      alias: {
+        '@mac': macDiff
+      }
+    },
     build: {
       rollupOptions: {
         input: {
@@ -25,6 +32,11 @@ export default defineConfig({
   },
   renderer: {
     root: 'src',
+    resolve: {
+      alias: {
+        '@mac': macDiff
+      }
+    },
     build: {
       rollupOptions: {
         input: {
@@ -32,6 +44,13 @@ export default defineConfig({
         }
       }
     },
-    plugins: [react()]
+    plugins: [react()],
+    server: {
+      // Allow importing Mac island from ../diff/mac while root is src/
+      fs: {
+        allow: [resolve('.'), macDiff]
+      }
+    }
   }
 })
+
