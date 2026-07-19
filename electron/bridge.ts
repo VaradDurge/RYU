@@ -3,15 +3,25 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
-import type { BridgeDecisionResponse, RyuDecision, RyuEvent } from '../shared/types'
+import type {
+  AgentStatusUpdate,
+  BridgeDecisionResponse,
+  RyuAgent,
+  RyuDecision,
+  RyuEvent
+} from '../shared/types'
 
 const DEFAULT_PORT = 41999
 const DECISION_TIMEOUT_MS = 5 * 60 * 1000
 
-interface Pending {
-  event: RyuEvent
+interface Waiter {
   res: ServerResponse
   timer: NodeJS.Timeout
+}
+
+interface Pending {
+  event: RyuEvent
+  waiters: Waiter[]
 }
 
 export class RyuBridge {
@@ -19,6 +29,12 @@ export class RyuBridge {
   private pending = new Map<string, Pending>()
   private port = DEFAULT_PORT
   private win: BrowserWindow | null = null
+  /** Last-known agent ring statuses (debug / GET /agents) */
+  private agentStatus: Record<RyuAgent, AgentStatusUpdate['status']> = {
+    cursor: 'idle',
+    claude: 'idle',
+    codex: 'idle'
+  }
 
   attachWindow(win: BrowserWindow): void {
     this.win = win
@@ -35,14 +51,16 @@ export class RyuBridge {
       this.server!.listen(this.port, '127.0.0.1', () => resolve())
     })
 
-    this.writePortFile(this.port)
+    this.writeConfigFiles(this.port)
     return this.port
   }
 
   stop(): void {
-    for (const [, p] of this.pending) {
-      clearTimeout(p.timer)
-      this.respondFailOpen(p.res)
+    for (const [, pending] of this.pending) {
+      for (const waiter of pending.waiters) {
+        clearTimeout(waiter.timer)
+        this.respondFailOpen(waiter.res)
+      }
     }
     this.pending.clear()
     this.server?.close()
@@ -51,24 +69,49 @@ export class RyuBridge {
 
   resolveDecision(decision: RyuDecision): boolean {
     const item = this.pending.get(decision.id)
-    if (!item) return false
-    clearTimeout(item.timer)
-    this.pending.delete(decision.id)
-    this.json(item.res, 200, {
+    if (!item) {
+      console.warn(`[ryu] decision for unknown id ${decision.id}`)
+      return false
+    }
+
+    const payload = {
       status: decision.decision,
       decision
-    } satisfies BridgeDecisionResponse)
+    } satisfies BridgeDecisionResponse
+
+    for (const waiter of item.waiters) {
+      clearTimeout(waiter.timer)
+      this.json(waiter.res, 200, payload)
+    }
+
+    this.pending.delete(decision.id)
+    console.log(`[ryu] decision ${decision.decision} id=${decision.id}`)
     return true
   }
 
-  private writePortFile(port: number): void {
+  private dropWaiter(id: string, res: ServerResponse): void {
+    const item = this.pending.get(id)
+    if (!item) return
+
+    item.waiters = item.waiters.filter((waiter) => {
+      if (waiter.res === res) clearTimeout(waiter.timer)
+      return waiter.res !== res
+    })
+
+    if (item.waiters.length > 0) return
+
+    this.pending.delete(id)
+    this.win?.webContents.send('ryu:cancel', id)
+  }
+
+  private writeConfigFiles(port: number): void {
     const dir = join(homedir(), '.ryu')
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'port'), String(port), 'utf8')
+    writeFileSync(join(dir, 'host'), '127.0.0.1', 'utf8')
   }
 
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    // CORS not needed (localhost hook only); keep responses simple
     if (req.method === 'GET' && req.url === '/health') {
       this.json(res, 200, { ok: true, port: this.port })
       return
@@ -79,6 +122,11 @@ export class RyuBridge {
         ids: [...this.pending.keys()],
         events: [...this.pending.values()].map((p) => p.event)
       })
+      return
+    }
+
+    if (req.method === 'GET' && req.url === '/agents') {
+      this.json(res, 200, { agents: this.agentStatus })
       return
     }
 
@@ -97,15 +145,29 @@ export class RyuBridge {
         return
       }
 
-      // Long-poll until decision or timeout
       const timer = setTimeout(() => {
         const item = this.pending.get(event.id)
         if (!item) return
+        for (const waiter of item.waiters) {
+          clearTimeout(waiter.timer)
+          this.respondFailOpen(waiter.res)
+        }
         this.pending.delete(event.id)
-        this.respondFailOpen(item.res)
+        console.log(`[ryu] timeout fail-open id=${event.id}`)
       }, DECISION_TIMEOUT_MS)
 
-      this.pending.set(event.id, { event, res, timer })
+      const existing = this.pending.get(event.id)
+      if (existing) {
+        existing.waiters.push({ res, timer })
+        req.on('close', () => this.dropWaiter(event.id, res))
+        return
+      }
+
+      this.pending.set(event.id, {
+        event,
+        waiters: [{ res, timer }]
+      })
+      req.on('close', () => this.dropWaiter(event.id, res))
       this.win?.webContents.send('ryu:event', event)
       return
     }
@@ -121,6 +183,28 @@ export class RyuBridge {
       }
       const ok = this.resolveDecision(decision)
       this.json(res, ok ? 200 : 404, { ok })
+      return
+    }
+
+    // Live agent ring status (Cursor hooks → green while working)
+    if (req.method === 'POST' && req.url === '/status') {
+      const body = await this.readBody(req)
+      let update: AgentStatusUpdate
+      try {
+        update = JSON.parse(body) as AgentStatusUpdate
+      } catch {
+        this.json(res, 400, { error: 'invalid json' })
+        return
+      }
+      const agents: RyuAgent[] = ['claude', 'codex', 'cursor']
+      const statuses = ['idle', 'running', 'approval', 'error'] as const
+      if (!agents.includes(update.agent) || !statuses.includes(update.status as (typeof statuses)[number])) {
+        this.json(res, 400, { error: 'invalid agent or status' })
+        return
+      }
+      this.agentStatus[update.agent] = update.status
+      this.win?.webContents.send('ryu:agentStatus', update)
+      this.json(res, 200, { ok: true, agents: this.agentStatus })
       return
     }
 

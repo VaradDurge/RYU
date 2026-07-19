@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { RyuDecision, RyuEvent } from '../shared/types'
+import type { AgentStatusUpdate, RyuDecision, RyuEvent } from '../shared/types'
 
 contextBridge.exposeInMainWorld('ryu', {
   setInteractive: (interactive: boolean) => {
@@ -15,5 +15,20 @@ contextBridge.exposeInMainWorld('ryu', {
       ipcRenderer.removeListener('ryu:event', listener)
     }
   },
-  isDev: () => process.env.NODE_ENV === 'development' || Boolean(process.env.ELECTRON_RENDERER_URL)
+  onCancel: (handler: (id: string) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, id: string) => handler(id)
+    ipcRenderer.on('ryu:cancel', listener)
+    return () => {
+      ipcRenderer.removeListener('ryu:cancel', listener)
+    }
+  },
+  onAgentStatus: (handler: (update: AgentStatusUpdate) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, update: AgentStatusUpdate) => handler(update)
+    ipcRenderer.on('ryu:agentStatus', listener)
+    return () => {
+      ipcRenderer.removeListener('ryu:agentStatus', listener)
+    }
+  },
+  isDev: () => process.env.NODE_ENV === 'development' || Boolean(process.env.ELECTRON_RENDERER_URL),
+  platform: process.platform as 'darwin' | 'win32' | 'linux'
 })
