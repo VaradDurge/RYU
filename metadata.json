@@ -1,0 +1,6 @@
+{
+  "name": "VC Roundtable Simulator",
+  "description": "Simulate reactions from six distinct VC investor personas to your startup pitch.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
