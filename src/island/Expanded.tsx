@@ -1,7 +1,7 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, MouseEvent } from 'react'
 import type { RyuEvent } from '../../shared/types'
-import { theme } from '../theme'
 import { AgentIcon } from './AgentIcon'
+import { theme } from '../theme'
 
 const agentNames = {
   claude: 'Claude',
@@ -9,7 +9,7 @@ const agentNames = {
   cursor: 'Cursor'
 } as const
 
-/** Glassmorphic permission card — matches the reference card under the island. */
+/** Permission card under the multi-agent dock. */
 export function Expanded({
   event,
   onAllow,
@@ -23,20 +23,25 @@ export function Expanded({
   const command = stripToolPrefix(event.preview)
   const path = event.path || '~/Projects/ryu'
 
+  const handle = (fn: () => void) => (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    fn()
+  }
+
   return (
-    <div style={{ width: 380, padding: 16 }}>
-      {/* Header */}
+    <div style={{ width: 400, padding: 20, pointerEvents: 'auto' }}>
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 14
+          marginBottom: 16
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <WarningGlyph />
-          <span style={{ color: theme.text, fontSize: 13.5, fontWeight: 600 }}>
+          <span style={{ color: theme.text, fontSize: 14, fontWeight: 600, letterSpacing: -0.2 }}>
             Tool Permission Required
           </span>
         </div>
@@ -45,12 +50,12 @@ export function Expanded({
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            padding: '4px 9px',
+            padding: '5px 10px',
             borderRadius: 999,
-            background: 'rgba(245, 197, 66, 0.12)',
-            border: '1px solid rgba(245, 197, 66, 0.28)',
+            background: 'rgba(245, 197, 66, 0.14)',
+            border: '1px solid rgba(245, 197, 66, 0.32)',
             color: theme.waiting,
-            fontSize: 11,
+            fontSize: 11.5,
             fontWeight: 600
           }}
         >
@@ -59,44 +64,43 @@ export function Expanded({
               width: 6,
               height: 6,
               borderRadius: '50%',
-              background: theme.waiting
+              background: theme.waiting,
+              boxShadow: `0 0 6px ${theme.waiting}`
             }}
           />
           Waiting
         </span>
       </div>
 
-      {/* Agent line */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
-          marginBottom: 12
+          gap: 12,
+          marginBottom: 14
         }}
       >
-        <AgentIcon agent={event.agent} size={26} />
-        <span style={{ color: theme.text, fontSize: 13.5 }}>
+        <AgentIcon agent={event.agent} size={36} />
+        <span style={{ color: theme.text, fontSize: 14 }}>
           <strong style={{ fontWeight: 650 }}>{name}</strong>
           <span style={{ color: theme.textMuted }}> wants to run a command.</span>
         </span>
       </div>
 
-      {/* Command inset */}
       <div
         style={{
           background: theme.inset,
           border: `1px solid ${theme.insetBorder}`,
-          borderRadius: theme.radiusControl,
-          padding: '11px 12px',
-          marginBottom: 8
+          borderRadius: 14,
+          padding: '12px 14px',
+          marginBottom: 10
         }}
       >
         <code
           style={{
             color: theme.text,
             fontFamily: theme.mono,
-            fontSize: 12,
+            fontSize: 12.5,
             lineHeight: 1.45,
             wordBreak: 'break-all',
             whiteSpace: 'pre-wrap'
@@ -106,15 +110,14 @@ export function Expanded({
         </code>
       </div>
 
-      {/* Path */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 6,
           color: theme.textDim,
-          fontSize: 11.5,
-          marginBottom: 14,
+          fontSize: 12,
+          marginBottom: 10,
           paddingLeft: 2
         }}
       >
@@ -122,17 +125,20 @@ export function Expanded({
         <span style={{ fontFamily: theme.mono }}>{path}</span>
       </div>
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button type="button" onClick={onDeny} style={denyBtn}>
+      <button type="button" style={detailsRow} tabIndex={-1}>
+        <ChevronGlyph />
+        Details
+      </button>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14, marginTop: 2 }}>
+        <button type="button" onMouseDown={handle(onDeny)} onClick={handle(onDeny)} style={denyBtn}>
           Deny
         </button>
-        <button type="button" onClick={onAllow} style={approveBtn}>
+        <button type="button" onMouseDown={handle(onAllow)} onClick={handle(onAllow)} style={approveBtn}>
           Approve
         </button>
       </div>
 
-      {/* Footer */}
       <div
         style={{
           display: 'flex',
@@ -140,7 +146,7 @@ export function Expanded({
           justifyContent: 'center',
           gap: 6,
           color: theme.textDim,
-          fontSize: 10.5
+          fontSize: 11
         }}
       >
         <LockGlyph />
@@ -151,7 +157,6 @@ export function Expanded({
 }
 
 function stripToolPrefix(preview: string): string {
-  // "Bash: npm test" → show as a shell-ish command for the card
   const m = preview.match(/^Bash:\s*(.+)$/i)
   if (m) {
     const cmd = m[1]
@@ -202,16 +207,38 @@ function LockGlyph() {
   )
 }
 
+function ChevronGlyph() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M6 3.5 11 8 6 12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+const detailsRow: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  border: 'none',
+  background: 'transparent',
+  color: theme.textDim,
+  fontSize: 12,
+  fontWeight: 500,
+  padding: '0 2px 14px',
+  cursor: 'default'
+}
+
 const denyBtn: CSSProperties = {
   flex: 1,
   border: `1px solid ${theme.denyBorder}`,
-  background: theme.denyBg,
+  background: 'rgba(255,255,255,0.08)',
   color: theme.denyText,
-  borderRadius: 12,
-  padding: '10px 12px',
-  fontSize: 13,
+  borderRadius: 14,
+  padding: '12px 14px',
+  fontSize: 14,
   fontWeight: 600,
-  cursor: 'pointer'
+  cursor: 'pointer',
+  pointerEvents: 'auto'
 }
 
 const approveBtn: CSSProperties = {
@@ -219,9 +246,10 @@ const approveBtn: CSSProperties = {
   border: 'none',
   background: theme.approveBg,
   color: theme.approveText,
-  borderRadius: 12,
-  padding: '10px 12px',
-  fontSize: 13,
+  borderRadius: 14,
+  padding: '12px 14px',
+  fontSize: 14,
   fontWeight: 650,
-  cursor: 'pointer'
+  cursor: 'pointer',
+  pointerEvents: 'auto'
 }

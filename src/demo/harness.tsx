@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { RyuEvent } from '../../shared/types'
+import { interactiveEnter, interactiveLeave } from '../lib/interactiveHover'
 import { theme } from '../theme'
 
 function uid(): string {
@@ -37,6 +38,17 @@ export function makeCodexEvent(): RyuEvent {
   })
 }
 
+export function makeCursorEvent(): RyuEvent {
+  return makePermissionEvent({
+    agent: 'cursor',
+    sessionLabel: 'cursor · ryu',
+    tool: 'Write',
+    preview: 'Write: temp.txt',
+    path: '~/Projects/ryu',
+    risk: 'normal'
+  })
+}
+
 /** ~90s pitch timeline — injects attention, waits for user decide, etc. */
 export function runPitchTimeline(inject: (e: RyuEvent) => void): () => void {
   const timers: number[] = []
@@ -44,8 +56,9 @@ export function runPitchTimeline(inject: (e: RyuEvent) => void): () => void {
     timers.push(window.setTimeout(fn, ms))
   }
 
-  later(1500, () => inject(makePermissionEvent()))
-  later(25000, () => inject(makeScaryEvent()))
+  later(1500, () => inject(makeCursorEvent()))
+  later(20000, () => inject(makeCodexEvent()))
+  later(40000, () => inject(makeScaryEvent()))
 
   return () => timers.forEach((t) => clearTimeout(t))
 }
@@ -72,14 +85,17 @@ export function DemoHarness({
         fontFamily: theme.font,
         pointerEvents: 'auto'
       }}
-      onMouseEnter={() => window.ryu?.setInteractive(true)}
-      onMouseLeave={() => window.ryu?.setInteractive(false)}
+      onMouseEnter={() => interactiveEnter()}
+      onMouseLeave={() => interactiveLeave()}
     >
-      <button type="button" style={btn} onClick={() => onInject(makePermissionEvent())}>
-        Inject permission
+      <button type="button" style={btn} onClick={() => onInject(makeCursorEvent())}>
+        Inject Cursor
       </button>
       <button type="button" style={btn} onClick={() => onInject(makeCodexEvent())}>
         Inject Codex
+      </button>
+      <button type="button" style={btn} onClick={() => onInject(makePermissionEvent())}>
+        Inject Claude
       </button>
       <button type="button" style={btn} onClick={() => onInject(makeScaryEvent())}>
         Inject scary rm
@@ -105,6 +121,5 @@ const btn: CSSProperties = {
   padding: '7px 11px',
   fontSize: 11,
   cursor: 'pointer',
-  textAlign: 'left',
-  backdropFilter: 'blur(16px)'
+  textAlign: 'left'
 }

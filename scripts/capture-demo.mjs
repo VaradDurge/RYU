@@ -20,14 +20,20 @@ await page.addStyleTag({
 })
 
 await page.screenshot({ path: 'docs/demo-shots/01-idle.png' })
-await page.getByRole('button', { name: 'Inject permission' }).click()
-await page.waitForTimeout(700)
+
+// Hover top-center to open dock in idle
+await page.mouse.move(640, 20)
+await page.waitForTimeout(400)
+await page.screenshot({ path: 'docs/demo-shots/01b-dock-hover.png' })
+
+await page.getByRole('button', { name: 'Inject Cursor' }).click()
+await page.waitForTimeout(800)
 await page.screenshot({ path: 'docs/demo-shots/02-attention.png' })
-await page.getByRole('button', { name: /Permission required/i }).click()
-await page.waitForTimeout(500)
 await page.screenshot({ path: 'docs/demo-shots/03-expanded.png' })
+
 await page.getByRole('button', { name: 'Approve' }).click()
 await page.waitForTimeout(450)
 await page.screenshot({ path: 'docs/demo-shots/04-resolved.png' })
+
 await browser.close()
 console.log('shots written to docs/demo-shots')

@@ -1,15 +1,23 @@
-import { AnimatePresence, motion } from 'framer-motion'
-import type { CSSProperties } from 'react'
-import type { IslandMode, RyuEvent } from '../../shared/types'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import type { IslandMode, RyuAgent, RyuEvent } from '../../shared/types'
 import { theme } from '../theme'
-import { Attention } from './Attention'
+import {
+  interactiveEnter,
+  interactiveForce,
+  interactiveLeave
+} from '../lib/interactiveHover'
+import { AgentDock } from './AgentDock'
+import { AgentStatusCard } from './AgentStatusCard'
 import { Expanded } from './Expanded'
 import { glassSurface } from './glass'
-import { GlowRing } from './GlowRing'
-import { AgentIcon } from './AgentIcon'
-import { Idle } from './Idle'
+import { TopAnchor } from './TopAnchor'
 import { Resolved } from './Resolved'
+import { anyAgentActive, useAgentStatuses } from './useAgentStatuses'
 
+const LEAVE_GRACE_MS = 220
+
+/** Multi-agent dock island (shared Windows + Mac UI). */
 export function Island({
   mode,
   event,
@@ -27,7 +35,84 @@ export function Island({
   onDeny: () => void
   onHoverChange: (hovering: boolean) => void
 }) {
-  const showCard = mode === 'expanded' && event
+  const reduce = useReducedMotion()
+  const [topHover, setTopHover] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState<RyuAgent | null>(null)
+  const leaveTimer = useRef<number | null>(null)
+  const insideRef = useRef(false)
+
+  const { statuses, summaries } = useAgentStatuses(mode, event, lastDecision)
+  const ambient = anyAgentActive(statuses)
+
+  const pendingAttention = mode === 'attention'
+  const lockedOpen = mode === 'expanded' || mode === 'resolved'
+  const showDock = topHover || lockedOpen || pendingAttention || ambient
+  const showPermissionCard = mode === 'expanded' && Boolean(event)
+  const showStatusCard =
+    Boolean(selectedAgent) &&
+    !showPermissionCard &&
+    mode !== 'resolved' &&
+    !(event && selectedAgent === event.agent && (mode === 'attention' || mode === 'expanded'))
+  const showResolvedInDock = mode === 'resolved' && Boolean(lastDecision)
+
+  useEffect(() => {
+    const needsClicks =
+      mode === 'expanded' || mode === 'resolved' || mode === 'attention' || showStatusCard
+    interactiveForce(needsClicks)
+    onHoverChange(needsClicks || insideRef.current)
+    return () => interactiveForce(false)
+  }, [mode, onHoverChange, showStatusCard])
+
+  useEffect(() => {
+    if (mode === 'attention' && event) {
+      setSelectedAgent(event.agent)
+      onExpand()
+    }
+  }, [mode, event, onExpand])
+
+  useEffect(() => {
+    if (mode === 'idle' && !ambient) setSelectedAgent(null)
+  }, [mode, ambient])
+
+  const setHovering = (next: boolean) => {
+    if (leaveTimer.current) {
+      window.clearTimeout(leaveTimer.current)
+      leaveTimer.current = null
+    }
+    if (next) {
+      if (!insideRef.current) {
+        insideRef.current = true
+        interactiveEnter()
+      }
+      setTopHover(true)
+      onHoverChange(true)
+      return
+    }
+    leaveTimer.current = window.setTimeout(() => {
+      if (insideRef.current) {
+        insideRef.current = false
+        interactiveLeave()
+      }
+      setTopHover(false)
+      onHoverChange(
+        mode === 'expanded' || mode === 'attention' || mode === 'resolved' || ambient
+      )
+      leaveTimer.current = null
+    }, LEAVE_GRACE_MS)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
+      if (insideRef.current) interactiveLeave()
+      interactiveForce(false)
+    }
+  }, [])
+
+  const onSelectAgent = (agent: RyuAgent) => {
+    setSelectedAgent(agent)
+    if (event && event.agent === agent) onExpand()
+  }
 
   return (
     <div
@@ -37,119 +122,144 @@ export function Island({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        paddingTop: 10,
         fontFamily: theme.font,
         userSelect: 'none',
         WebkitAppRegion: 'no-drag',
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        position: 'relative'
       } as CSSProperties}
     >
       <div
-        style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-        onMouseEnter={() => onHoverChange(true)}
-        onMouseLeave={() => onHoverChange(false)}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: Math.max(theme.topHitWidth, 420),
+          height: showDock ? 56 : theme.topHitHeight,
+          pointerEvents: 'auto',
+          zIndex: 5
+        }}
+      />
+
+      <div
+        style={{
+          pointerEvents: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          paddingTop: 6,
+          zIndex: 10
+        }}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+        onMouseDown={() => {
+          interactiveForce(true)
+          onHoverChange(true)
+        }}
       >
-        {/* Top glass pill */}
-        <motion.div
-          transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-          style={{
-            ...glassSurface(false),
-            borderRadius: theme.radiusPill,
-            overflow: 'hidden',
-            minHeight: 36
-          }}
-        >
-          <AnimatePresence mode="wait">
-            {mode === 'idle' && (
-              <motion.div
-                key="idle"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                style={{ padding: 3 }}
-              >
-                <Idle />
-              </motion.div>
-            )}
+        <TopAnchor attention={Boolean(event) && mode !== 'idle'} showStem={showDock} />
 
-            {mode === 'attention' && event && (
-              <motion.div
-                key="attention"
-                initial={{ opacity: 0, scale: 0.94 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-              >
-                <Attention event={event} onExpand={onExpand} />
-              </motion.div>
-            )}
-
-            {mode === 'expanded' && event && (
-              <motion.div
-                key="pill-expanded"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '8px 16px',
-                  minWidth: 56
-                }}
-              >
-                <div style={{ position: 'relative', width: 26, height: 26 }}>
-                  <GlowRing active destructive={event.risk === 'destructive'} />
-                  <AgentIcon agent={event.agent} size={26} />
-                </div>
-              </motion.div>
-            )}
-
-            {mode === 'resolved' && lastDecision && (
-              <motion.div
-                key="resolved"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <Resolved decision={lastDecision} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Dashed connector + permission card (reference layout) */}
         <AnimatePresence>
-          {showCard && (
+          {showDock && (
             <motion.div
-              key="card-stack"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+              key="dock-stack"
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                pointerEvents: 'auto'
+              }}
             >
-              <div
-                aria-hidden
-                style={{
-                  width: 1,
-                  height: 22,
-                  borderLeft: '1.5px dashed rgba(255,255,255,0.28)',
-                  marginTop: 2,
-                  marginBottom: 2
-                }}
-              />
-              <div
-                style={{
-                  ...glassSurface(true),
-                  borderRadius: theme.radiusCard,
-                  overflow: 'hidden'
-                }}
-              >
-                <Expanded event={event} onAllow={onAllow} onDeny={onDeny} />
-              </div>
+              {showResolvedInDock && lastDecision ? (
+                <div style={{ ...glassSurface(false), borderRadius: theme.radiusPill }}>
+                  <Resolved decision={lastDecision} />
+                </div>
+              ) : (
+                <AgentDock
+                  statuses={statuses}
+                  summaries={summaries}
+                  selectedAgent={selectedAgent}
+                  onSelectAgent={onSelectAgent}
+                />
+              )}
+
+              <AnimatePresence>
+                {showPermissionCard && event && (
+                  <motion.div
+                    key="card-stack"
+                    initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22, ease: 'easeOut' }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      pointerEvents: 'auto'
+                    }}
+                  >
+                    <div
+                      aria-hidden
+                      style={{
+                        width: 1,
+                        height: 18,
+                        borderLeft: '1.5px dashed rgba(255,255,255,0.32)',
+                        marginTop: 2,
+                        marginBottom: 2
+                      }}
+                    />
+                    <div
+                      style={{
+                        ...glassSurface(true),
+                        borderRadius: theme.radiusCard,
+                        overflow: 'hidden',
+                        pointerEvents: 'auto'
+                      }}
+                    >
+                      <Expanded event={event} onAllow={onAllow} onDeny={onDeny} />
+                    </div>
+                  </motion.div>
+                )}
+
+                {showStatusCard && selectedAgent && (
+                  <motion.div
+                    key={`status-${selectedAgent}`}
+                    initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22, ease: 'easeOut' }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      pointerEvents: 'auto'
+                    }}
+                  >
+                    <div
+                      aria-hidden
+                      style={{
+                        width: 1,
+                        height: 18,
+                        borderLeft: '1.5px dashed rgba(255,255,255,0.32)',
+                        marginTop: 2,
+                        marginBottom: 2
+                      }}
+                    />
+                    <AgentStatusCard
+                      agent={selectedAgent}
+                      status={statuses[selectedAgent]}
+                      summary={summaries[selectedAgent]}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>

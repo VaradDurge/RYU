@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { RyuDecision } from '../shared/types'
 import { DemoHarness } from './demo/harness'
 import { Island } from './island/Island'
+import { resetInteractiveHover } from './lib/interactiveHover'
 import { useIsland } from './state/useIsland'
 
 const isDev =
@@ -17,6 +18,17 @@ export default function App() {
       ingestEvent(event)
     })
   }, [ingestEvent])
+
+  useEffect(() => {
+    if (!window.ryu?.onCancel) return
+    return window.ryu.onCancel(() => goIdle())
+  }, [goIdle])
+
+  useEffect(() => {
+    const onBlur = () => resetInteractiveHover()
+    window.addEventListener('blur', onBlur)
+    return () => window.removeEventListener('blur', onBlur)
+  }, [])
 
   useEffect(() => {
     if (state.mode !== 'resolved') return
@@ -44,7 +56,9 @@ export default function App() {
         onExpand={expand}
         onAllow={() => decide('allow')}
         onDeny={() => decide('deny')}
-        onHoverChange={(hovering) => window.ryu?.setInteractive?.(hovering)}
+        onHoverChange={() => {
+          /* Island owns interactiveEnter/Force; parent only needs the callback for API parity */
+        }}
       />
       <DemoHarness visible={isDev} onInject={ingestEvent} />
     </>

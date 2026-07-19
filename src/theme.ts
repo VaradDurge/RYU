@@ -33,5 +33,9 @@ export const theme = {
 
   radiusPill: 999,
   radiusCard: 22,
-  radiusControl: 12
+  radiusControl: 12,
+
+  /** Top-center hit strip for hover-open dock (Windows floating island). */
+  topHitWidth: 420,
+  topHitHeight: 36
 } as const

@@ -38,6 +38,11 @@ export function createNotchWindow(): BrowserWindow {
 
   win.once('ready-to-show', () => {
     win.showInactive()
+    setWindowInteractive(win, false)
+  })
+
+  win.webContents.on('did-finish-load', () => {
+    setWindowInteractive(win, false)
   })
 
   return win

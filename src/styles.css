@@ -7,6 +7,8 @@ body,
   height: 100%;
   overflow: hidden;
   background: transparent;
+  /* Overlay shell: children opt in with pointer-events:auto */
+  pointer-events: none;
 }
 
 * {
@@ -15,4 +17,40 @@ body,
 
 button {
   font-family: inherit;
+}
+
+@keyframes ryu-ring-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ryu-ring-dash {
+  0% {
+    stroke-dasharray: 0.92 0.08;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 0.5 0.5;
+    stroke-dashoffset: -0.35;
+  }
+  100% {
+    stroke-dasharray: 0.92 0.08;
+    stroke-dashoffset: -1;
+  }
+}
+
+.ryu-ring-spin {
+  animation: ryu-ring-rotate 1.05s linear infinite;
+}
+
+.ryu-ring-dash {
+  animation: ryu-ring-dash 1.35s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ryu-ring-spin,
+  .ryu-ring-dash {
+    animation: none;
+  }
 }
