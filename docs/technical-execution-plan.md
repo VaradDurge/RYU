@@ -1,11 +1,15 @@
 # RYU — Technical Execution Plan
 
-**Date:** 2026-07-19  
-**Status:** Approved direction; execution not yet started.
+**Date:** 2026-07-19 (updated 2026-07-20)  
+**Status:** Phase 0 UI implemented and locked as visual reference; Phase 1 wiring exists — verify per OS.
 
-Locked decisions: **Electron + React + TypeScript + Vite + Framer Motion**; first real agent = **Claude Code**; **permissions only** in v1 (questions logged for Phase 3); **Windows-first**; **demo (Phase 0) before function (Phase 1)**.
+Locked decisions: **Electron + React + TypeScript + Vite + Framer Motion**; first real agent = **Claude Code**; **permissions only** in v1 (questions logged for Phase 3); **Windows floating island + Mac notch shell** (parallel tracks); **demo (Phase 0) before function (Phase 1)**.
 
-Product intent source of truth: [product-and-feature-loops.md](./product-and-feature-loops.md) · [overview.md](./overview.md) · [competitor-research.md](./competitor-research.md) · [pain-points-and-mvp.md](./pain-points-and-mvp.md)
+**UI source of truth (do not redesign before implementing ahead):** [parallel-work-split.md §6](./parallel-work-split.md) — glassmorphic pill + permission card. Live code: `src/island/*`, `src/theme.ts`. Screenshots: `docs/demo-shots/`.
+
+**Team split (Windows vs Mac):** [parallel-work-split.md](./parallel-work-split.md)
+
+Product intent: [product-and-feature-loops.md](./product-and-feature-loops.md) · [overview.md](./overview.md)
 
 ---
 
@@ -103,6 +107,17 @@ Goal: lock the Apple Dynamic Island feel of Idle → Attention → Expanded → 
 **Demo harness** (`src/demo/harness.tsx`, dev-only): buttons "Inject permission", "Inject scary rm", scripted ~90s timeline for the pitch.
 
 **Exit criteria:** someone watches the demo and says "that's the product" with zero agent running.
+
+### Phase 0 gate (HARD STOP — do not skip)
+
+When Phase 0 is complete (window + island states + harness working):
+
+1. **Pause execution.** Do not start Phase 1 (bridge, hook, Claude wiring).
+2. **Tell the user** Phase 0 is ready for UX review, with how to run the demo (`npm run dev` or equivalent) and what to click.
+3. **Wait for explicit go-ahead** after the user has viewed, refined, and signed off on the look/feel.
+4. Only then proceed to Phase 1.
+
+UX refinement loops (glow, motion, sizing, Idle/Attention/Expanded polish) happen *inside* Phase 0 until the user says proceed.
 
 ---
 
