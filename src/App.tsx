@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { RyuDecision } from '../shared/types'
+import { IslandMac } from '../diff/mac/island/IslandMac'
 import { DemoHarness } from './demo/harness'
 import { Island } from './island/Island'
 import { useIsland } from './state/useIsland'
@@ -7,6 +8,12 @@ import { useIsland } from './state/useIsland'
 const isDev =
   typeof window !== 'undefined' &&
   (import.meta.env.DEV || window.ryu?.isDev?.() === true)
+
+const isMac =
+  typeof window !== 'undefined' &&
+  (window.ryu?.platform === 'darwin' ||
+    // Vite browser preview / harness without preload
+    (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)))
 
 export default function App() {
   const { state, ingestEvent, expand, resolve, goIdle } = useIsland()
@@ -35,17 +42,19 @@ export default function App() {
     resolve(decision)
   }
 
+  const islandProps = {
+    mode: state.mode,
+    event: state.current,
+    lastDecision: state.lastDecision,
+    onExpand: expand,
+    onAllow: () => decide('allow'),
+    onDeny: () => decide('deny'),
+    onHoverChange: (hovering: boolean) => window.ryu?.setInteractive?.(hovering)
+  }
+
   return (
     <>
-      <Island
-        mode={state.mode}
-        event={state.current}
-        lastDecision={state.lastDecision}
-        onExpand={expand}
-        onAllow={() => decide('allow')}
-        onDeny={() => decide('deny')}
-        onHoverChange={(hovering) => window.ryu?.setInteractive?.(hovering)}
-      />
+      {isMac ? <IslandMac {...islandProps} /> : <Island {...islandProps} />}
       <DemoHarness visible={isDev} onInject={ingestEvent} />
     </>
   )

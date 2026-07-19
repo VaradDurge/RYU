@@ -49,8 +49,11 @@ Both start from current `main` / latest pull:
 ### Branches
 
 - `you/windows-shell-ux` — Track A  
-- `them/mac-shell` — Track B  
+- `them/mac-shell` — Track B (legacy name)  
+- `diff/mac` — Mac implementation branch; code under [`diff/mac/`](../diff/mac/)  
 - Merge to `main` often; keep `shared/types.ts` stable  
+
+**Mac code location:** all Mac shell + dock UI lives in `diff/mac/` (see [`diff/mac/README.md`](../diff/mac/README.md)). Thin wiring only in `electron/main.ts`, `electron/preload.ts`, and `src/App.tsx`.
 
 ---
 

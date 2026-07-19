@@ -15,5 +15,6 @@ contextBridge.exposeInMainWorld('ryu', {
       ipcRenderer.removeListener('ryu:event', listener)
     }
   },
-  isDev: () => process.env.NODE_ENV === 'development' || Boolean(process.env.ELECTRON_RENDERER_URL)
+  isDev: () => process.env.NODE_ENV === 'development' || Boolean(process.env.ELECTRON_RENDERER_URL),
+  platform: process.platform as 'darwin' | 'win32' | 'linux'
 })

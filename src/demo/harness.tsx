@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { RyuEvent } from '../../shared/types'
+import { interactiveEnter, interactiveLeave } from '../../diff/mac/island/interactive'
 import { theme } from '../theme'
 
 function uid(): string {
@@ -34,6 +35,15 @@ export function makeCodexEvent(): RyuEvent {
     agent: 'codex',
     sessionLabel: 'codex · ryu',
     preview: 'Bash: npm test -- --watch'
+  })
+}
+
+export function makeCursorEvent(): RyuEvent {
+  return makePermissionEvent({
+    agent: 'cursor',
+    sessionLabel: 'cursor · ryu',
+    preview: 'Bash: pnpm lint',
+    path: '~/Projects/ryu'
   })
 }
 
@@ -72,14 +82,17 @@ export function DemoHarness({
         fontFamily: theme.font,
         pointerEvents: 'auto'
       }}
-      onMouseEnter={() => window.ryu?.setInteractive(true)}
-      onMouseLeave={() => window.ryu?.setInteractive(false)}
+      onMouseEnter={() => interactiveEnter()}
+      onMouseLeave={() => interactiveLeave()}
     >
       <button type="button" style={btn} onClick={() => onInject(makePermissionEvent())}>
         Inject permission
       </button>
       <button type="button" style={btn} onClick={() => onInject(makeCodexEvent())}>
         Inject Codex
+      </button>
+      <button type="button" style={btn} onClick={() => onInject(makeCursorEvent())}>
+        Inject Cursor
       </button>
       <button type="button" style={btn} onClick={() => onInject(makeScaryEvent())}>
         Inject scary rm

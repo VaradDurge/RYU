@@ -9,6 +9,7 @@ declare global {
       decide: (decision: RyuDecision) => void
       onEvent: (handler: (event: RyuEvent) => void) => () => void
       isDev: () => boolean
+      platform: 'darwin' | 'win32' | 'linux'
     }
   }
 }

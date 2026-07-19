@@ -12,5 +12,5 @@
     "noEmit": true,
     "types": ["vite/client"]
   },
-  "include": ["electron/**/*", "src/**/*", "shared/**/*"]
+  "include": ["electron/**/*", "src/**/*", "shared/**/*", "diff/mac/**/*"]
 }

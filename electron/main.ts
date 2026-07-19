@@ -1,8 +1,9 @@
 import { app, ipcMain, screen } from 'electron'
 import { join } from 'node:path'
 import { RyuBridge } from './bridge'
-import { createNotchWindow, repositionNotchWindow, setWindowInteractive } from './window'
 import type { RyuDecision } from '../shared/types'
+import * as windowWin from './window'
+import * as windowMac from '../diff/mac/electron/window'
 
 // Windows: help transparency / click-through in some GPU setups
 if (process.platform === 'win32') {
@@ -10,9 +11,10 @@ if (process.platform === 'win32') {
 }
 
 const bridge = new RyuBridge()
+const windowApi = process.platform === 'darwin' ? windowMac : windowWin
 
 app.whenReady().then(async () => {
-  const win = createNotchWindow()
+  const win = windowApi.createNotchWindow()
   bridge.attachWindow(win)
 
   try {
@@ -29,14 +31,14 @@ app.whenReady().then(async () => {
   }
 
   ipcMain.on('ryu:setInteractive', (_e, interactive: boolean) => {
-    setWindowInteractive(win, Boolean(interactive))
+    windowApi.setWindowInteractive(win, Boolean(interactive))
   })
 
   ipcMain.on('ryu:decision', (_e, decision: RyuDecision) => {
     bridge.resolveDecision(decision)
   })
 
-  screen.on('display-metrics-changed', () => repositionNotchWindow(win))
+  screen.on('display-metrics-changed', () => windowApi.repositionNotchWindow(win))
 })
 
 app.on('window-all-closed', () => {
