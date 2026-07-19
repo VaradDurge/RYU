@@ -9,7 +9,15 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "hook:install": "node scripts/install-claude-hook.mjs",
-    "verify:phase1": "node scripts/verify-phase1.mjs"
+    "hook:install:codex": "node scripts/install-codex-hook.mjs",
+    "verify:phase1": "node scripts/verify-phase1.mjs",
+    "verify:cursor": "node scripts/verify-phase1.mjs",
+    "verify:cursor-status": "node scripts/verify-cursor-status.mjs",
+    "verify:claude-status": "node scripts/verify-claude-status.mjs",
+    "verify:claude-resume": "node scripts/verify-claude-resume.mjs",
+    "acp:cursor": "node scripts/ryu-cursor-acp.mjs",
+    "capture:demo": "node scripts/capture-demo.mjs",
+    "capture:mac": "node diff/mac/scripts/capture-mac-demo.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",

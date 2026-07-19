@@ -49,8 +49,11 @@ Both start from current `main` / latest pull:
 ### Branches
 
 - `you/windows-shell-ux` — Track A  
-- `them/mac-shell` — Track B  
+- `them/mac-shell` — Track B (legacy name)  
+- `diff/mac` — Mac implementation branch; code under [`diff/mac/`](../diff/mac/)  
 - Merge to `main` often; keep `shared/types.ts` stable  
+
+**Mac code location:** all Mac shell + dock UI lives in `diff/mac/` (see [`diff/mac/README.md`](../diff/mac/README.md)). Thin wiring only in `electron/main.ts`, `electron/preload.ts`, and `src/App.tsx`.
 
 ---
 
@@ -131,40 +134,37 @@ This is the look that was approved. **Aspire to this; don’t invent a second vi
 
 **Do not ship:** hanging warning badges below the notch (explicitly rejected), purple AI gradients, multi-layer shadow “double outline,” nested pill-inside-pill, translucent cards that show Cursor chat through them.
 
-### 6.2 States
+### 6.2 States (multi-agent dock — current source of truth)
 
 ```text
 IDLE → ATTENTION → EXPANDED → RESOLVED → IDLE
 ```
 
+Shared UI for Windows + Mac lives in `src/island/*` (Mac Electron shell only under `diff/mac/electron/`).
+
 #### Idle
 
-- Thin frosted **pill** top-center.  
-- Empty / quiet; no icon, no glow.  
-- Ignorable until something needs you.
+- Top-center **glow dot** (notch stand-in on Windows).  
+- Hover top strip → multi-agent **dock** opens (Claude · Codex · Cursor + decorative slots).  
+- Quiet until a permission arrives.
 
 #### Attention
 
-- Same glass pill.  
-- **Real agent logo** (Claude / Codex / Cursor assets in `src/assets/agents/`).  
-- Soft selection **ring** around the icon (inside the pill — not a floating badge under the notch).  
-- Small status **dot** (yellow waiting / red if destructive).  
-- Click → Expanded.
+- Dock stays open; **active agent** (Claude / Codex / Cursor) gets glow ring + waiting/danger status dot.  
+- Auto-expands to permission card (no extra click required).
 
 #### Expanded (permission card)
 
-Layout matches the approved reference:
-
 ```text
-        [ glass pill with agent icon + ring ]
-                        |
-                   dashed connector
-                        |
+        [ top glow ]──dashed──[ glass dock: Claude · Codex · Cursor ]
+                                    |
+                               dashed connector
+                                    |
         ┌──────── glass permission card ────────┐
         │ ⚠ Tool Permission Required    Waiting │
-        │ [logo] Claude wants to run a command. │
+        │ [logo] Cursor wants to run a command. │
         │ ┌─ command inset ───────────────────┐ │
-        │ │ bash -lc "…"                      │ │
+        │ │ …                                 │ │
         │ └───────────────────────────────────┘ │
         │ 📁 ~/Projects/…                       │
         │ [ Deny ]              [ Approve ]     │
@@ -172,32 +172,30 @@ Layout matches the approved reference:
         └───────────────────────────────────────┘
 ```
 
-Content rules:
-
 | Element | Spec |
 | --- | --- |
 | Title | “Tool Permission Required” |
 | Badge | “Waiting” + yellow dot |
 | Body | `{Agent} wants to run a command.` with real logo |
-| Command | Monospace in dark inset; prefer `bash -lc "…"` style for Bash |
-| Path | Optional `event.path` (e.g. `~/Projects/ryu`) |
+| Command | Monospace in dark inset |
+| Path | Optional `event.path` |
 | Actions | Deny (ghost) · Approve (white primary) |
 | Footer | Lock + “Local mode — All data stays on this device” |
-| Width | ~380px card |
+| Width | ~400px card |
 
 #### Resolved
 
-- Brief pill state: green “Approved” or red “Denied”.  
+- Brief dock pill: green “Approved” or red “Denied”.  
 - Auto-collapse to Idle (~1s).
 
 ### 6.3 Interaction
 
 | Gesture | Behavior |
 | --- | --- |
-| Hover pill/card | Window accepts mouse (click-through off) |
+| Hover top / dock / card | Window accepts mouse (click-through off); force-lock while expanded |
 | Elsewhere | Click-through to desktop / IDE |
 | Approve / Deny | Sends `RyuDecision`; UI → Resolved → Idle |
-| Demo harness (dev) | Top-left: Inject permission / Codex / scary rm / pitch timeline |
+| Demo harness (dev) | Top-left: Inject Cursor / Codex / Claude / scary rm / pitch timeline |
 
 ### 6.4 Implementation map (don’t regress)
 
@@ -205,11 +203,13 @@ Content rules:
 | --- | --- |
 | Tokens | `src/theme.ts` |
 | Glass helper | `src/island/glass.ts` |
-| Shell layout + dashed connector | `src/island/Island.tsx` |
-| States | `Idle.tsx`, `Attention.tsx`, `Expanded.tsx`, `Resolved.tsx` |
+| Dock shell + card | `src/island/Island.tsx` |
+| Dock strip | `AgentDock.tsx`, `DockIcons.tsx`, `TopAnchor.tsx` |
+| Card / resolved | `Expanded.tsx`, `Resolved.tsx` |
 | Logos | `src/island/AgentIcon.tsx` + `src/assets/agents/*.png` |
 | Fake events | `src/demo/harness.tsx` |
-| Reference screenshots | `docs/demo-shots/` (regenerate via `node scripts/capture-demo.mjs`) |
+| Mac window only | `diff/mac/electron/window.ts` |
+| Reference screenshots | `docs/demo-shots/` (+ `mac-*.png`) |
 
 ### 6.5 Platform note (Mac vs Windows)
 
