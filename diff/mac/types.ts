@@ -1,15 +1,21 @@
 import type { RyuAgent } from '../../shared/types'
 
-/** Presentational dock slots (demo + real agents). Real events still use RyuAgent. */
-export type DockSlotId = RyuAgent | 'cube' | 'sparkle' | 'terminal' | 'sailboat' | 'add'
+/**
+ * Live agent ring status:
+ * - idle     → blue (idle or finished)
+ * - running  → green (processing)
+ * - approval → yellow (needs permission)
+ * - error    → red (error / deny / destructive fail)
+ */
+export type DockStatus = 'idle' | 'running' | 'approval' | 'error'
 
-export type DockStatus = 'idle' | 'ok' | 'waiting' | 'danger' | 'muted'
+export type AgentStatusMap = Record<RyuAgent, DockStatus>
 
-export interface DockSlot {
-  id: DockSlotId
-  /** Maps to a real RyuEvent agent when applicable */
-  agent?: RyuAgent
-  label: string
-  status: DockStatus
-  selectable: boolean
+/** Real agents shown in the Mac dock (no mock icons). Cursor first. */
+export const DOCK_AGENTS: RyuAgent[] = ['cursor', 'claude', 'codex']
+
+export const AGENT_LABELS: Record<RyuAgent, string> = {
+  cursor: 'Cursor',
+  claude: 'Claude',
+  codex: 'Codex'
 }

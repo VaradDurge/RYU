@@ -1,22 +1,30 @@
 import { useEffect } from 'react'
 import type { RyuDecision } from '../shared/types'
 import { IslandMac } from '../diff/mac/island/IslandMac'
-import { DemoHarness } from './demo/harness'
+import { NoticeSurface } from '../diff/mac/island/NoticeSurface'
 import { Island } from './island/Island'
 import { useIsland } from './state/useIsland'
-
-const isDev =
-  typeof window !== 'undefined' &&
-  (import.meta.env.DEV || window.ryu?.isDev?.() === true)
 
 const isMac =
   typeof window !== 'undefined' &&
   (window.ryu?.platform === 'darwin' ||
-    // Vite browser preview / harness without preload
     (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)))
 
+const isNoticeSurface =
+  typeof window !== 'undefined' &&
+  (window.ryu?.isNoticeSurface?.() === true ||
+    new URLSearchParams(window.location.search).get('surface') === 'notices')
+
 export default function App() {
-  const { state, ingestEvent, expand, resolve, goIdle } = useIsland()
+  if (isNoticeSurface) {
+    return <NoticeSurface />
+  }
+
+  return <IslandApp />
+}
+
+function IslandApp() {
+  const { state, ingestEvent, expand, collapse, resolve, goIdle } = useIsland()
 
   useEffect(() => {
     if (!window.ryu?.onEvent) return
@@ -42,20 +50,26 @@ export default function App() {
     resolve(decision)
   }
 
-  const islandProps = {
+  const sharedProps = {
     mode: state.mode,
     event: state.current,
     lastDecision: state.lastDecision,
     onExpand: expand,
     onAllow: () => decide('allow'),
     onDeny: () => decide('deny'),
-    onHoverChange: (hovering: boolean) => window.ryu?.setInteractive?.(hovering)
+    onHoverChange: (hovering: boolean) => {
+      if (isMac) return
+      window.ryu?.setInteractive?.(hovering)
+    }
   }
 
   return (
     <>
-      {isMac ? <IslandMac {...islandProps} /> : <Island {...islandProps} />}
-      <DemoHarness visible={isDev} onInject={ingestEvent} />
+      {isMac ? (
+        <IslandMac {...sharedProps} onCollapse={collapse} />
+      ) : (
+        <Island {...sharedProps} />
+      )}
     </>
   )
 }

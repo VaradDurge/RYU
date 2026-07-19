@@ -1,9 +1,8 @@
 import type { CSSProperties } from 'react'
 import type { DockSlotId } from '../types'
-import { macTheme } from './theme'
 import { AgentIcon } from './AgentIcon'
 
-export function DockIcon({ id, size = 26 }: { id: DockSlotId; size?: number }) {
+export function DockIcon({ id, size = 20 }: { id: DockSlotId; size?: number }) {
   if (id === 'claude' || id === 'codex' || id === 'cursor') {
     return <AgentIcon agent={id} size={size} />
   }
@@ -14,10 +13,10 @@ export function DockIcon({ id, size = 26 }: { id: DockSlotId; size?: number }) {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'rgba(255,255,255,0.9)'
+    color: 'rgba(255,255,255,0.82)'
   }
 
-  const s = Math.round(size * 0.7)
+  const s = Math.round(size * 0.78)
 
   return (
     <span style={wrap} aria-hidden>
@@ -49,7 +48,7 @@ function SparkleIcon({ size }: { size: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <path
         d="M12 3.5 13.6 9.2 19 10.5l-4.5 3.7L15.8 20 12 16.8 8.2 20l1.3-5.8L5 10.5l5.4-1.3L12 3.5Z"
-        stroke={macTheme.waiting}
+        stroke="rgba(200, 185, 120, 0.9)"
         strokeWidth="1.3"
         strokeLinejoin="round"
       />

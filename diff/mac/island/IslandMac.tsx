@@ -1,21 +1,36 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import type { IslandMode, RyuEvent } from '../../../shared/types'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import type { IslandMode, RyuAgent, RyuEvent } from '../../../shared/types'
 import { AgentDock } from './AgentDock'
 import { Expanded } from './Expanded'
 import { macGlassSurface } from './glass'
-import { interactiveEnter, interactiveForce, interactiveLeave } from './interactive'
-import { NotchAnchor } from './NotchAnchor'
+import {
+  interactiveEnter,
+  interactiveLeave,
+  interactiveReset,
+  recentlyCaptured
+} from './interactive'
+import {
+  islandFromNotch,
+  islandFromNotchReduced,
+  panelFromDock,
+  stemGrow
+} from './motion'
+import { NotchNotices } from './NotchNotices'
 import { Resolved } from './Resolved'
 import { macTheme } from './theme'
+import { useAgentStatuses } from './useAgentStatuses'
 
-const LEAVE_GRACE_MS = 220
+const LEAVE_GRACE_MS = 320
+const TUCKED_SIZE = { width: 140, height: 36 }
+const SIZE_PAD = 8
 
 export function IslandMac({
   mode,
   event,
   lastDecision,
   onExpand,
+  onCollapse,
   onAllow,
   onDeny,
   onHoverChange
@@ -24,59 +39,95 @@ export function IslandMac({
   event: RyuEvent | null
   lastDecision: 'allow' | 'deny' | null
   onExpand: () => void
+  onCollapse: () => void
   onAllow: () => void
   onDeny: () => void
   onHoverChange: (hovering: boolean) => void
 }) {
   const reduce = useReducedMotion()
-  const [notchHover, setNotchHover] = useState(false)
+  const [peek, setPeek] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState<RyuAgent | null>(null)
   const leaveTimer = useRef<number | null>(null)
   const insideRef = useRef(false)
+  const lastEventId = useRef<string | null>(null)
 
-  const pendingAttention = mode === 'attention'
-  const lockedOpen = mode === 'expanded' || mode === 'resolved'
-  // Show dock on hover, or whenever a permission needs action
-  const showDock = notchHover || lockedOpen || pendingAttention
-  const showCard = mode === 'expanded' && Boolean(event)
-  const showResolvedInDock = mode === 'resolved' && Boolean(lastDecision)
+  const { statuses, summaries, notices, dismissNotice } = useAgentStatuses(
+    mode,
+    event,
+    lastDecision
+  )
+  const showResolved = mode === 'resolved' && Boolean(lastDecision)
+  const showDock = peek || Boolean(selectedAgent) || showResolved
 
-  // Keep Electron mouse capture ON while UI must accept clicks
+  const showPermission =
+    selectedAgent &&
+    event &&
+    event.agent === selectedAgent &&
+    (mode === 'expanded' || mode === 'attention')
+
   useEffect(() => {
-    const needsClicks = mode === 'expanded' || mode === 'resolved' || mode === 'attention'
-    interactiveForce(needsClicks)
-    onHoverChange(needsClicks || insideRef.current)
-    return () => interactiveForce(false)
-  }, [mode, onHoverChange])
-
-  // Pending permission → open card immediately (reference: expand to decide)
-  useEffect(() => {
-    if (mode === 'attention' && event) {
+    if (event?.id && event.id !== lastEventId.current) {
+      lastEventId.current = event.id
+      setSelectedAgent(event.agent)
+      setPeek(true)
       onExpand()
+      const autoTuck = window.setTimeout(() => {
+        if (!insideRef.current) {
+          setSelectedAgent(null)
+          setPeek(false)
+          onCollapse()
+          interactiveReset()
+        }
+      }, 4500)
+      return () => window.clearTimeout(autoTuck)
     }
-  }, [mode, event, onExpand])
+    if (!event && mode === 'idle') {
+      lastEventId.current = null
+    }
+  }, [event, mode, onExpand, onCollapse])
+
+  const selectAgent = (agent: RyuAgent) => {
+    setSelectedAgent(agent)
+    setPeek(true)
+    if (event && event.agent === agent) onExpand()
+  }
+
+  const tuck = () => {
+    if (insideRef.current) {
+      insideRef.current = false
+      interactiveLeave()
+    }
+    setSelectedAgent(null)
+    setPeek(false)
+    onCollapse()
+    interactiveReset()
+    onHoverChange(false)
+  }
 
   const setHovering = (next: boolean) => {
     if (leaveTimer.current) {
       window.clearTimeout(leaveTimer.current)
       leaveTimer.current = null
     }
+
     if (next) {
       if (!insideRef.current) {
         insideRef.current = true
         interactiveEnter()
       }
-      setNotchHover(true)
+      setPeek(true)
       onHoverChange(true)
       return
     }
+
+    if (recentlyCaptured()) return
+
     leaveTimer.current = window.setTimeout(() => {
-      if (insideRef.current) {
-        insideRef.current = false
-        interactiveLeave()
+      if (recentlyCaptured()) {
+        leaveTimer.current = null
+        return
       }
-      setNotchHover(false)
-      // Force flag still holds interactive while expanded/attention
-      onHoverChange(mode === 'expanded' || mode === 'attention' || mode === 'resolved')
+      tuck()
       leaveTimer.current = null
     }, LEAVE_GRACE_MS)
   }
@@ -84,10 +135,37 @@ export function IslandMac({
   useEffect(() => {
     return () => {
       if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
-      if (insideRef.current) interactiveLeave()
-      interactiveForce(false)
+      interactiveReset()
+      window.ryu?.setIslandSize?.(TUCKED_SIZE)
     }
   }, [])
+
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  // Compact panel: hug visible content so we don't block the desktop
+  useLayoutEffect(() => {
+    const el = contentRef.current
+    if (!el || !window.ryu?.setIslandSize) return
+
+    const publish = () => {
+      if (!showDock) {
+        window.ryu?.setIslandSize?.(TUCKED_SIZE)
+        return
+      }
+      const rect = el.getBoundingClientRect()
+      window.ryu?.setIslandSize?.({
+        width: Math.ceil(rect.width) + SIZE_PAD,
+        height: Math.ceil(rect.height) + SIZE_PAD
+      })
+    }
+
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [showDock, showPermission, showResolved])
+
+  const stackVariants = reduce ? islandFromNotchReduced : islandFromNotch
 
   return (
     <div
@@ -100,108 +178,140 @@ export function IslandMac({
         fontFamily: macTheme.font,
         userSelect: 'none',
         WebkitAppRegion: 'no-drag',
-        pointerEvents: 'none',
-        position: 'relative'
+        // Compact panel is the hit target — whole surface is interactive
+        pointerEvents: 'auto',
+        position: 'relative',
+        background: 'transparent'
       } as CSSProperties}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
     >
-      {/* Wide top hit strip so notch / menubar hover always works */}
-      <div
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: Math.max(macTheme.notchHitWidth, 420),
-          height: showDock ? 56 : macTheme.notchHitHeight,
-          pointerEvents: 'auto',
-          zIndex: 5
+      {/* Blue / red dots — right of the notch (menu-bar band), not below */}
+      <NotchNotices
+        notices={notices}
+        onDismiss={dismissNotice}
+        islandOpen={showDock}
+        onSelect={(agent) => {
+          selectAgent(agent)
+          setPeek(true)
+          setHovering(true)
         }}
       />
 
       <div
+        ref={contentRef}
+        data-ryu-island
         style={{
           pointerEvents: 'auto',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          paddingTop: 6,
-          zIndex: 10
-        }}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
-        onMouseDown={() => {
-          // Re-assert capture on any press (Approve/Deny / dock)
-          interactiveForce(true)
-          onHoverChange(true)
+          paddingTop: 4,
+          zIndex: 10,
+          minWidth: showDock ? 160 : 120
         }}
       >
-        <NotchAnchor attention={Boolean(event) && mode !== 'idle'} showStem={showDock} />
+        {/* Always-visible tuck lip under the notch — hover wake target */}
+        <div
+          aria-hidden
+          style={{
+            width: showDock ? 36 : 44,
+            height: showDock ? 3 : 5,
+            borderRadius: 999,
+            flexShrink: 0,
+            marginBottom: showDock ? 5 : 0,
+            background: showDock
+              ? 'rgba(255,255,255,0.22)'
+              : 'rgba(255,255,255,0.42)',
+            boxShadow: showDock
+              ? 'none'
+              : '0 0 0 0.5px rgba(0,0,0,0.55), 0 1px 6px rgba(0,0,0,0.35)',
+            transition: 'width 180ms ease, height 180ms ease, background 180ms ease'
+          }}
+        />
 
-        <AnimatePresence>
+        <AnimatePresence mode="popLayout">
           {showDock && (
             <motion.div
               key="dock-stack"
-              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+              variants={stackVariants}
+              initial="hidden"
+              animate="show"
+              exit="exit"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                pointerEvents: 'auto'
+                overflow: 'visible',
+                willChange: 'transform, opacity'
               }}
             >
-              {showResolvedInDock && lastDecision ? (
-                <div style={{ ...macGlassSurface(false), borderRadius: macTheme.radiusPill }}>
+              {showResolved && lastDecision ? (
+                <motion.div
+                  layout
+                  style={{
+                    ...macGlassSurface(false),
+                    borderRadius: macTheme.radiusPill,
+                    transformOrigin: '50% 0%'
+                  }}
+                  initial={reduce ? false : { scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                >
                   <Resolved decision={lastDecision} />
-                </div>
+                </motion.div>
               ) : (
                 <AgentDock
-                  event={event}
-                  onSelectAgent={(agent) => {
-                    if (event && event.agent === agent) onExpand()
-                  }}
+                  statuses={statuses}
+                  summaries={summaries}
+                  selectedAgent={selectedAgent}
+                  onSelectAgent={selectAgent}
+                  animateIn={!reduce}
                 />
               )}
 
-              <AnimatePresence>
-                {showCard && event && (
+              <AnimatePresence mode="popLayout">
+                {showPermission && selectedAgent && event && (
                   <motion.div
-                    key="card-stack"
-                    initial={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
-                    transition={{ duration: 0.22, ease: 'easeOut' }}
+                    key={`panel-${selectedAgent}-perm`}
+                    variants={reduce ? islandFromNotchReduced : panelFromDock}
+                    initial="hidden"
+                    animate="show"
+                    exit="exit"
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
-                      pointerEvents: 'auto'
+                      overflow: 'visible',
+                      willChange: 'transform, opacity'
                     }}
                   >
-                    <div
+                    <motion.div
                       aria-hidden
+                      variants={stemGrow}
                       style={{
-                        width: 1,
-                        height: 18,
-                        borderLeft: '1.5px dashed rgba(255,255,255,0.32)',
-                        marginTop: 2,
-                        marginBottom: 2
+                        width: 1.5,
+                        height: 12,
+                        borderRadius: 999,
+                        background:
+                          'linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0.06))',
+                        marginTop: 5,
+                        marginBottom: 5,
+                        transformOrigin: '50% 0%'
                       }}
                     />
-                    <div
+                    <motion.div
                       style={{
                         ...macGlassSurface(true),
                         borderRadius: macTheme.radiusCard,
                         overflow: 'hidden',
-                        pointerEvents: 'auto'
+                        transformOrigin: '50% 0%'
                       }}
+                      initial={reduce ? false : { y: -8, opacity: 0.85 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     >
                       <Expanded event={event} onAllow={onAllow} onDeny={onDeny} />
-                    </div>
+                    </motion.div>
                   </motion.div>
                 )}
               </AnimatePresence>

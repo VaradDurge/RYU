@@ -32,7 +32,11 @@ function reducer(state: IslandState, action: Action): IslandState {
       if (!state.current) return state
       return { ...state, mode: 'expanded' }
     case 'collapse':
-      if (state.mode === 'expanded') return { ...state, mode: 'attention' }
+      // Tuck UI under notch but keep pending event (attention glow)
+      if (state.mode === 'expanded' && state.current) {
+        return { ...state, mode: 'attention' }
+      }
+      if (state.mode === 'expanded') return { ...state, mode: 'idle' }
       return state
     case 'resolved':
       return {

@@ -3,7 +3,13 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
-import type { BridgeDecisionResponse, RyuDecision, RyuEvent } from '../shared/types'
+import type {
+  AgentStatusUpdate,
+  BridgeDecisionResponse,
+  RyuAgent,
+  RyuDecision,
+  RyuEvent
+} from '../shared/types'
 
 const DEFAULT_PORT = 41999
 const DECISION_TIMEOUT_MS = 5 * 60 * 1000
@@ -19,6 +25,12 @@ export class RyuBridge {
   private pending = new Map<string, Pending>()
   private port = DEFAULT_PORT
   private win: BrowserWindow | null = null
+  /** Last-known agent ring statuses (debug / GET /agents) */
+  private agentStatus: Record<RyuAgent, AgentStatusUpdate['status']> = {
+    cursor: 'idle',
+    claude: 'idle',
+    codex: 'idle'
+  }
 
   attachWindow(win: BrowserWindow): void {
     this.win = win
@@ -82,6 +94,11 @@ export class RyuBridge {
       return
     }
 
+    if (req.method === 'GET' && req.url === '/agents') {
+      this.json(res, 200, { agents: this.agentStatus })
+      return
+    }
+
     if (req.method === 'POST' && req.url === '/event') {
       const body = await this.readBody(req)
       let event: RyuEvent
@@ -121,6 +138,28 @@ export class RyuBridge {
       }
       const ok = this.resolveDecision(decision)
       this.json(res, ok ? 200 : 404, { ok })
+      return
+    }
+
+    // Live agent ring status (Cursor hooks → green while working)
+    if (req.method === 'POST' && req.url === '/status') {
+      const body = await this.readBody(req)
+      let update: AgentStatusUpdate
+      try {
+        update = JSON.parse(body) as AgentStatusUpdate
+      } catch {
+        this.json(res, 400, { error: 'invalid json' })
+        return
+      }
+      const agents: RyuAgent[] = ['claude', 'codex', 'cursor']
+      const statuses = ['idle', 'running', 'approval', 'error'] as const
+      if (!agents.includes(update.agent) || !statuses.includes(update.status as (typeof statuses)[number])) {
+        this.json(res, 400, { error: 'invalid agent or status' })
+        return
+      }
+      this.agentStatus[update.agent] = update.status
+      this.win?.webContents.send('ryu:agentStatus', update)
+      this.json(res, 200, { ok: true, agents: this.agentStatus })
       return
     }
 

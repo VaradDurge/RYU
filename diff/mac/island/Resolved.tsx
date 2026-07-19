@@ -8,19 +8,20 @@ export function Resolved({ decision }: { decision: 'allow' | 'deny' }) {
         display: 'flex',
         alignItems: 'center',
         gap: 8,
-        padding: '10px 18px',
+        padding: '9px 16px',
         color: macTheme.text,
-        fontSize: 12.5,
-        fontWeight: 600
+        fontSize: 12,
+        fontWeight: 590,
+        fontFamily: macTheme.font,
+        letterSpacing: '-0.01em'
       }}
     >
       <span
         style={{
-          width: 7,
-          height: 7,
+          width: 6,
+          height: 6,
           borderRadius: '50%',
-          background: ok ? macTheme.success : macTheme.danger,
-          boxShadow: `0 0 8px ${ok ? macTheme.success : macTheme.danger}`
+          background: ok ? macTheme.success : macTheme.danger
         }}
       />
       {ok ? 'Approved' : 'Denied'}

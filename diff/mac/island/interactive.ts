@@ -1,31 +1,44 @@
 /**
- * Shared interactive lock for Mac overlay.
- * Prevents the demo harness mouseleave from re-enabling click-through
- * while the island / permission card still needs clicks.
+ * Click-through for the Mac overlay.
+ * Default: click-through. Capture only while the pointer is over the island.
+ *
+ * Toggling setIgnoreMouseEvents can synthesize a mouseleave in Chromium —
+ * callers should ignore leave for a short window after enter (see IslandMac).
  */
 
-let refs = 0
-let forced = false
+let hoverRefs = 0
+let lastCaptureAt = 0
 
 function apply() {
-  const on = forced || refs > 0
+  const on = hoverRefs > 0
+  if (on) lastCaptureAt = Date.now()
   window.ryu?.setInteractive?.(on)
 }
 
-/** Begin hovering an interactive surface (island, harness, etc.). */
+/** Pointer entered the island hover zone */
 export function interactiveEnter(): void {
-  refs += 1
+  hoverRefs += 1
   apply()
 }
 
-/** End hovering an interactive surface. */
+/** Pointer left the island hover zone */
 export function interactiveLeave(): void {
-  refs = Math.max(0, refs - 1)
+  hoverRefs = Math.max(0, hoverRefs - 1)
   apply()
 }
 
-/** Force interactive while permission UI must accept clicks (expanded / resolved). */
-export function interactiveForce(on: boolean): void {
-  forced = on
+/** True for a brief window after capture turns on (ignore synthetic leaves) */
+export function recentlyCaptured(ms = 220): boolean {
+  return Date.now() - lastCaptureAt < ms
+}
+
+/** @deprecated */
+export function interactiveForce(_on: boolean): void {
+  apply()
+}
+
+/** Hard reset — restores click-through immediately */
+export function interactiveReset(): void {
+  hoverRefs = 0
   apply()
 }

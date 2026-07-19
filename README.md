@@ -20,20 +20,28 @@ A floating pill appears at the **top-center** of your screen.
 
 Desktop stays click-through except when hovering the island (or harness).
 
-## Phase 1 — Claude Code wiring
+## Agent monitoring (Cursor + Claude)
 
-1. Keep RYU running (`npm run dev`).
-2. Install the hook once:
+Keep RYU running (`npm run dev`). Dock rings:
+
+| Color | Meaning |
+| --- | --- |
+| Blue | Idle / finished |
+| Green | Agent working |
+| Yellow | Needs permission |
+| Red | Error / denied |
+
+**Cursor** — project hooks in `.cursor/hooks.json` (this repo). Green while the agent works; blue on stop.
+
+**Claude Code** — install once:
 
 ```bash
 npm run hook:install
 ```
 
-3. In Claude Code, trigger a Bash/Write/Edit permission. The island should light up; **Allow** / **Deny** from the notch.
+Then run Claude in a terminal. Status appears on the Mac dock without opening Claude. Permissions still use Approve/Deny on the island.
 
-If RYU is down or times out, Claude falls back to its normal prompt (**fail-open** — never silent auto-allow).
-
-Bridge listens on `127.0.0.1:41999` and writes the port to `~/.ryu/port`.
+If RYU is down, hooks **fail-open** (agents keep working). Bridge: `127.0.0.1:41999` · `~/.ryu/port` · logs in `~/.ryu/*-hook.log`.
 
 ## Docs
 
@@ -45,5 +53,5 @@ See [`docs/README.md`](./docs/README.md) — especially [`docs/technical-executi
 | --- | --- |
 | `npm run dev` | Run unpackaged Electron demo |
 | `npm run build` | Production build |
-| `npm run hook:install` | Wire Claude Code PreToolUse hook |
+| `npm run hook:install` | Wire Claude Code permission + status hooks |
 | `npm run verify:phase1` | Automated bridge + hook checks (RYU must be running) |

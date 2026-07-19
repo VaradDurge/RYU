@@ -103,6 +103,21 @@ async function main() {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
+  // Yellow ring while waiting for Approve/Deny (fail-open if RYU down)
+  try {
+    const statusAc = new AbortController()
+    const statusTimer = setTimeout(() => statusAc.abort(), 800)
+    await fetch(`http://127.0.0.1:${port}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent: 'claude', status: 'approval', detail: 'PreToolUse' }),
+      signal: statusAc.signal
+    })
+    clearTimeout(statusTimer)
+  } catch {
+    // ignore
+  }
+
   try {
     const res = await fetch(`http://127.0.0.1:${port}/event`, {
       method: 'POST',

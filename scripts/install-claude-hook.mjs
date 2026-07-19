@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /**
- * Installs RYU as a Claude Code PreToolUse hook.
+ * Installs RYU Claude Code hooks:
+ * - PreToolUse → ryu-hook.mjs (Approve/Deny for Bash|Write|Edit)
+ * - SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / Stop / SessionEnd
+ *   → ryu-claude-status.mjs (green/blue/yellow rings)
+ *
  * Backs up existing settings before writing.
  */
 
@@ -10,7 +14,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const hookPath = resolve(__dirname, '../hooks/ryu-hook.mjs')
+const permissionHookPath = resolve(__dirname, '../hooks/ryu-hook.mjs')
+const statusHookPath = resolve(__dirname, '../hooks/ryu-claude-status.mjs')
 const settingsPath = join(homedir(), '.claude', 'settings.json')
 
 function loadSettings() {
@@ -23,6 +28,27 @@ function loadSettings() {
   }
 }
 
+function stripRyuHooks(entries) {
+  if (!Array.isArray(entries)) return []
+  return entries.filter((entry) => {
+    const cmds = entry?.hooks?.map((h) => h.command).join(' ') || ''
+    return !cmds.includes('ryu-hook.mjs') && !cmds.includes('ryu-claude-status.mjs')
+  })
+}
+
+function statusCommand() {
+  return `node "${statusHookPath.replace(/\\/g, '/')}"`
+}
+
+/** @param {string | undefined} matcher */
+function statusEntry(matcher) {
+  const entry = {
+    hooks: [{ type: 'command', command: statusCommand() }]
+  }
+  if (matcher) entry.matcher = matcher
+  return entry
+}
+
 const settings = loadSettings()
 const dir = dirname(settingsPath)
 mkdirSync(dir, { recursive: true })
@@ -33,31 +59,38 @@ if (existsSync(settingsPath)) {
   console.log(`[ryu] Backed up settings to ${backup}`)
 }
 
-const command = `node "${hookPath.replace(/\\/g, '/')}"`
-const newHook = {
-  matcher: 'Bash|Write|Edit',
-  hooks: [
-    {
-      type: 'command',
-      command
-    }
-  ]
-}
-
 if (!settings.hooks) settings.hooks = {}
-if (!Array.isArray(settings.hooks.PreToolUse)) settings.hooks.PreToolUse = []
 
-// Remove previous RYU entries
-settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter((entry) => {
-  const cmds = entry?.hooks?.map((h) => h.command).join(' ') || ''
-  return !cmds.includes('ryu-hook.mjs')
+const permissionCommand = `node "${permissionHookPath.replace(/\\/g, '/')}"`
+
+// --- PreToolUse: permission gate + status heartbeat ---
+settings.hooks.PreToolUse = stripRyuHooks(settings.hooks.PreToolUse)
+settings.hooks.PreToolUse.push({
+  matcher: 'Bash|Write|Edit',
+  hooks: [{ type: 'command', command: permissionCommand }]
 })
+settings.hooks.PreToolUse.push(statusEntry())
 
-settings.hooks.PreToolUse.push(newHook)
+// --- Lifecycle status ---
+const lifecycle = [
+  ['SessionStart', 'startup|resume|clear|compact'],
+  ['UserPromptSubmit', undefined],
+  ['PostToolUse', undefined],
+  ['Stop', undefined],
+  ['SessionEnd', undefined],
+  ['StopFailure', undefined]
+]
+
+for (const [key, matcher] of lifecycle) {
+  settings.hooks[key] = stripRyuHooks(settings.hooks[key])
+  settings.hooks[key].push(statusEntry(matcher))
+}
 
 writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8')
 
-console.log(`[ryu] Installed PreToolUse hook → ${settingsPath}`)
-console.log(`[ryu] Hook command: ${command}`)
+console.log(`[ryu] Installed Claude hooks → ${settingsPath}`)
+console.log(`[ryu] Permission: ${permissionCommand}`)
+console.log(`[ryu] Status:     ${statusCommand()}`)
 console.log('[ryu] Start RYU (`npm run dev`) before using Claude Code.')
-console.log('[ryu] To uninstall: restore the .ryu-backup-* file or remove the ryu-hook entry from hooks.PreToolUse.')
+console.log('[ryu] Then run a Claude task — dock shows green (running) / yellow (permission) / blue (idle).')
+console.log('[ryu] To uninstall: restore the .ryu-backup-* file or remove ryu-* entries from hooks.')

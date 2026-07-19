@@ -28,9 +28,9 @@ export function AgentIcon({ agent, size = 28 }: { agent: RyuAgent; size?: number
         height: size,
         borderRadius: '50%',
         display: 'block',
-        boxShadow: '0 0 0 1px rgba(255,255,255,0.12)',
+        boxShadow: 'none',
         objectFit: 'cover',
-        background: '#0a0a0a',
+        background: 'transparent',
         flexShrink: 0
       }}
     />

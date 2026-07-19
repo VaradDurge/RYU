@@ -33,6 +33,33 @@ npm run dev
 
 Hover the top-center / notch strip to reveal the dock. Use the demo harness to inject permissions.
 
+### Dock agents (real only)
+
+Shows **Cursor · Claude · Codex** — no mock icons.
+
+| Ring | Meaning |
+| --- | --- |
+| Blue | Idle or finished |
+| Green | Running (after Approve, while agent continues) |
+| Yellow | Permission needed |
+| Red | Error / Deny |
+
+### Reliable monitoring (Cursor + Claude)
+
+| Agent | Setup | Rings |
+| --- | --- | --- |
+| **Cursor** | Project [`.cursor/hooks.json`](../../.cursor/hooks.json) (already in repo) | Green while working; blue on `stop` |
+| **Claude** | One-time: `npm run hook:install` | Green while working; yellow on permission; blue on stop |
+
+Keep **RYU running** (`npm run dev`) so hooks can reach `127.0.0.1:41999`.
+
+- Hover notch → dock **pins** until click outside.
+- Non-idle agent → dock stays visible (ambient) so you don’t need to open Cursor/Claude.
+- Logs: `~/.ryu/cursor-hook.log`, `~/.ryu/claude-hook.log`
+- Debug: `curl http://127.0.0.1:41999/agents`
+
+Click an agent icon for its status card (or permission card if pending).
+
 ## Screenshots
 
 Regenerate with `npm run capture:mac` (dev server on `:5173`):

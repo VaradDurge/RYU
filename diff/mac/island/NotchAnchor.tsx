@@ -1,13 +1,15 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import { macTheme } from './theme'
 
-/** Glowing white dot that sits under the hardware notch. */
+/** Glowing white dot under the hardware notch + optional stem down to the dock. */
 export function NotchAnchor({
   attention = false,
-  showStem = false
+  showStem = false,
+  stemHeight = macTheme.stemHeight
 }: {
   attention?: boolean
   showStem?: boolean
+  stemHeight?: number
 }) {
   const reduce = useReducedMotion()
 
@@ -17,7 +19,8 @@ export function NotchAnchor({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        minHeight: showStem ? stemHeight + 10 : 10
       }}
     >
       <motion.div
@@ -29,7 +32,8 @@ export function NotchAnchor({
           background: '#fff',
           boxShadow: attention
             ? `0 0 14px rgba(255,255,255,0.85), 0 0 4px ${macTheme.waiting}`
-            : '0 0 10px rgba(255,255,255,0.65)'
+            : '0 0 10px rgba(255,255,255,0.65)',
+          flexShrink: 0
         }}
         animate={
           reduce
@@ -49,9 +53,9 @@ export function NotchAnchor({
           aria-hidden
           style={{
             width: 1,
-            height: 10,
-            marginTop: 2,
-            borderLeft: '1.5px dashed rgba(255,255,255,0.28)'
+            height: stemHeight,
+            marginTop: 4,
+            borderLeft: '1.5px dashed rgba(255,255,255,0.34)'
           }}
         />
       )}

@@ -1,6 +1,9 @@
 import type { CSSProperties } from 'react'
 import type { RyuEvent } from '../../shared/types'
-import { interactiveEnter, interactiveLeave } from '../../diff/mac/island/interactive'
+import {
+  interactiveEnter,
+  interactiveLeave
+} from '../../diff/mac/island/interactive'
 import { theme } from '../theme'
 
 function uid(): string {

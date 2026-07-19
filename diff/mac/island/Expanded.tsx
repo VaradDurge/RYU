@@ -41,7 +41,15 @@ export function Expanded({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <WarningGlyph />
-          <span style={{ color: macTheme.text, fontSize: 14, fontWeight: 600, letterSpacing: -0.2 }}>
+          <span
+            style={{
+              color: macTheme.text,
+              fontSize: 13,
+              fontWeight: 590,
+              letterSpacing: '-0.02em',
+              fontFamily: macTheme.font
+            }}
+          >
             Tool Permission Required
           </span>
         </div>
@@ -50,22 +58,21 @@ export function Expanded({
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            padding: '5px 10px',
+            padding: '4px 9px',
             borderRadius: 999,
-            background: 'rgba(245, 197, 66, 0.14)',
-            border: '1px solid rgba(245, 197, 66, 0.32)',
+            background: 'rgba(255, 214, 10, 0.1)',
+            border: '0.5px solid rgba(255, 214, 10, 0.28)',
             color: macTheme.waiting,
-            fontSize: 11.5,
-            fontWeight: 600
+            fontSize: 11,
+            fontWeight: 590
           }}
         >
           <span
             style={{
-              width: 6,
-              height: 6,
+              width: 5,
+              height: 5,
               borderRadius: '50%',
-              background: macTheme.waiting,
-              boxShadow: `0 0 6px ${macTheme.waiting}`
+              background: macTheme.waiting
             }}
           />
           Waiting
@@ -90,9 +97,9 @@ export function Expanded({
       <div
         style={{
           background: macTheme.inset,
-          border: `1px solid ${macTheme.insetBorder}`,
-          borderRadius: 14,
-          padding: '12px 14px',
+          border: `0.5px solid ${macTheme.insetBorder}`,
+          borderRadius: 12,
+          padding: '11px 13px',
           marginBottom: 10
         }}
       >
@@ -230,15 +237,16 @@ const detailsRow: CSSProperties = {
 
 const denyBtn: CSSProperties = {
   flex: 1,
-  border: `1px solid ${macTheme.denyBorder}`,
-  background: 'rgba(255,255,255,0.08)',
+  border: `0.5px solid ${macTheme.denyBorder}`,
+  background: 'rgba(255,255,255,0.05)',
   color: macTheme.denyText,
-  borderRadius: 14,
-  padding: '12px 14px',
-  fontSize: 14,
-  fontWeight: 600,
+  borderRadius: macTheme.radiusControl,
+  padding: '11px 14px',
+  fontSize: 13,
+  fontWeight: 590,
   cursor: 'pointer',
-  pointerEvents: 'auto'
+  pointerEvents: 'auto',
+  fontFamily: macTheme.font
 }
 
 const approveBtn: CSSProperties = {
@@ -246,10 +254,11 @@ const approveBtn: CSSProperties = {
   border: 'none',
   background: macTheme.approveBg,
   color: macTheme.approveText,
-  borderRadius: 14,
-  padding: '12px 14px',
-  fontSize: 14,
-  fontWeight: 650,
+  borderRadius: macTheme.radiusControl,
+  padding: '11px 14px',
+  fontSize: 13,
+  fontWeight: 600,
   cursor: 'pointer',
-  pointerEvents: 'auto'
+  pointerEvents: 'auto',
+  fontFamily: macTheme.font
 }
