@@ -14,6 +14,8 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 - [x] Write Track B plan → `tasks/track-b-plan.md`
 - [x] User **go** on Track B (confirm S9–S12) → implement
 - [x] Track B S10→S9→S11→S12 + verify:track-b green
+- [x] Independent core-loop technical + outcome audit → `docs/core-loop-failure-analysis.md`
+- [ ] User reviews audit priorities; then write remediation plan (F1–F15)
 - [ ] E6 Cursor Resume strategy note — later / optional after B
 
 ### Track A checklist (after go)
@@ -41,6 +43,7 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 | E5 | Ring watchdog (no stuck green) | Signal quality | done |
 | E6 | Cursor Resume strategy note (ACP vs selective) | Unblock Cursor product loop | todo |
 | E7 | Clean PR of working Windows path | Known-good home baseline | todo |
+| E8 | Core-loop recovery/trust remediation (F1–F15) | Prevent invisible/false decisions | needs plan |
 
 ## Later / logged (product phases)
 

@@ -15,6 +15,7 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 - Island FIFO queue + in-dock **Dismiss**
 - Fail-open when RYU down / dismiss → cancelled (scripted)
 - Deny path awaits status post → `agents.claude=error` before exit
+- **Audit:** `docs/core-loop-failure-analysis.md` identifies pending hydration, decision acknowledgment, hook-ID collision, click-through, and local trust boundary as unresolved P0 risks.
 
 ## Does not / deferred
 
