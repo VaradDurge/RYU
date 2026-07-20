@@ -16,6 +16,7 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 - Fail-open when RYU down / dismiss → cancelled (scripted)
 - Deny path awaits status post → `agents.claude=error` before exit
 - **Audit:** `docs/core-loop-failure-analysis.md` identifies pending hydration, decision acknowledgment, hook-ID collision, click-through, and local trust boundary as unresolved P0 risks.
+- **Next plan:** `docs/core-loop-remediation-plan.md` — Phase 1 P1.1–P1.5 is planned; no remediation code started.
 
 ## Does not / deferred
 
