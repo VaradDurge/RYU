@@ -20,6 +20,7 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 - Home Phase 1 checks still open: `docs/HOME-PHASE1.md`
 - **Phase 2 surface (remote):** ordered status revisions, `stale` (not false idle), bridge health snapshot, no auto-expand Attention, Understand card session/details — `npm run verify:phase2-surface` PASS
 - Home Phase 2 checks open: `docs/HOME-PHASE2.md`
+- **Next plan:** Phase 3 production proof and expansion gate — `docs/phase3-execution-plan.md` (plan only; awaiting user go)
 
 ## Does not / deferred
 

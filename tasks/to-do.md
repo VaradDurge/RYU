@@ -21,6 +21,8 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 - [x] Create Phase 2 execution plan + model handoff → `docs/phase2-execution-plan.md`
 - [x] User approves Phase 2 scope → implement P2.1–P2.6
 - [x] Implement Phase 2 P2.1–P2.6 + verify:phase2-surface
+- [x] Create Phase 3 production-proof plan + model handoff → `docs/phase3-execution-plan.md`
+- [ ] User reviews/approves Phase 3 proof scope → then implement P3.1–P3.6
 - [ ] Home Phase 1 checks (`docs/HOME-PHASE1.md`) when back at laptop
 - [ ] Home Phase 2 checks (`docs/HOME-PHASE2.md`) when back at laptop
 - [ ] E6 Cursor Resume strategy note — later / optional after B
@@ -52,7 +54,7 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 | E7 | Clean PR of working Windows path | Known-good home baseline | todo |
 | E8 | Phase 1 decision integrity/recovery (P1.1–P1.5) | Prevent invisible/false/over-broad decisions | done (remote); home open |
 | E9 | Phase 2 truthful usable surface (P2.1–P2.6) | Clear context + honest statuses | done (remote); home open |
-| E10 | Phase 3 production proof/expansion gate | Test shipped Electron + live integrations | later |
+| E10 | Phase 3 production proof/expansion gate | Test shipped Electron + live integrations | planned; awaiting go |
 
 ## Later / logged (product phases)
 
