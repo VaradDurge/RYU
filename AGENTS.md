@@ -50,10 +50,12 @@ Catch-up narrative (human): `UPDATES.md`. Long product plan: `docs/product-and-f
 
 ```bash
 npm install
+npm run verify:track-a         # S1–S8 headless (preferred remote gate)
+npm run bridge:headless        # bridge only, no Electron
 npm run dev                    # needs display/Electron where available
-npm run verify:cursor-status
+npm run verify:cursor-status   # needs bridge up
 npm run verify:claude-status
-npm run verify:claude-resume   # needs bridge up
+npm run verify:claude-resume
 npm run verify:phase1
 ```
 

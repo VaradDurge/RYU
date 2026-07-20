@@ -1,6 +1,6 @@
 # Track A plan — harden verify contracts (S1–S8)
 
-**Status:** plan only — await go to implement  
+**Status:** implemented — `npm run verify:track-a` S1–S8 PASS (2026-07-20)  
 **Out of scope:** S9–S12 (Track B), H1–H3 (home-only live)
 
 ## Goal

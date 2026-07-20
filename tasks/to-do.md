@@ -10,16 +10,16 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 - [x] Reframe `references/` = external research; seed Claude/Cursor/Apple/competitors
 - [x] Agree Track A success cases S1–S8 (H1–H3 home-only)
 - [x] Write Track A plan → `tasks/track-a-plan.md`
-- [ ] User **go** on Track A plan → implement
+- [x] User **go** on Track A plan → implement
 - [ ] Track B later (S9–S12) — do not start until A done / user asks
 
 ### Track A checklist (after go)
 
-- [ ] Headless bridge harness (no Electron UI)
-- [ ] Named S1–S8 asserts in verify path
-- [ ] Fill S5 error (+ cursor approval POST); S3/S6 harden as planned
-- [ ] `npm run verify:track-a` green here
-- [ ] Update memory/status + PR
+- [x] Headless bridge harness (no Electron UI)
+- [x] Named S1–S8 asserts in verify path
+- [x] Fill S5 error (+ cursor approval POST); S3/S6 harden as planned
+- [x] `npm run verify:track-a` green here
+- [x] Update memory/status + PR
 
 ## Home-only (user laptop — do not fake as done)
 

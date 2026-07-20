@@ -271,7 +271,7 @@ async function main() {
 
     if (body.status === 'allow' || body.decision?.decision === 'allow') {
       log(`allow id=${event.id} via ${hookEventName}`)
-      void postStatus(host, port, 'running', truncate(preview || 'Approved — continuing'))
+      await postStatus(host, port, 'running', truncate(preview || 'Approved — continuing'))
       emitDecision(hookEventName, 'allow', body.decision?.reason || 'Approved via RYU')
       process.exit(0)
       return
@@ -279,7 +279,7 @@ async function main() {
 
     if (body.status === 'deny' || body.decision?.decision === 'deny') {
       log(`deny id=${event.id} via ${hookEventName}`)
-      void postStatus(host, port, 'error', 'Claude · Denied')
+      await postStatus(host, port, 'error', 'Claude · Denied')
       emitDecision(hookEventName, 'deny', body.decision?.reason || 'Denied via RYU')
       process.exit(0)
       return

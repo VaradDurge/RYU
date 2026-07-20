@@ -6,9 +6,12 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 
 - Dock UI + demo Inject (`npm run dev`)
 - Bridge `127.0.0.1:41999` (`/event` `/decision` `/status` `/agents`)
+- **Track A contracts** — `npm run verify:track-a` (headless) S1–S8 PASS
+- Headless bridge: `npm run bridge:headless` / `scripts/headless-bridge.mjs`
 - Cursor **status rings** (live + `verify:cursor-status`)
 - Claude status + permission plumbing (`verify:claude-status`, `verify:claude-resume`)
 - Fail-open when RYU down (scripted)
+- Deny path awaits status post → `agents.claude=error` before exit
 
 ## Does not / deferred
 

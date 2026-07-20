@@ -47,6 +47,13 @@ async function main() {
   })
   assert(approval.ok && approval.json?.agents?.claude === 'approval', 'POST approval failed')
 
+  const error = await post('/status', {
+    agent: 'claude',
+    status: 'error',
+    detail: 'Claude · Error'
+  })
+  assert(error.ok && error.json?.agents?.claude === 'error', 'POST error failed')
+
   // argv + empty stdin (install wires event name on argv)
   const child = spawnSync(process.execPath, [hookPath, 'UserPromptSubmit'], {
     input: '',

@@ -59,6 +59,20 @@ async function main() {
   const agents1 = await get('/agents')
   assert(agents1.json?.agents?.cursor === 'running', 'GET /agents cursor !== running')
 
+  const approval = await post('/status', {
+    agent: 'cursor',
+    status: 'approval',
+    detail: 'Cursor · Needs approval'
+  })
+  assert(approval.ok && approval.json?.agents?.cursor === 'approval', 'cursor approval status')
+
+  const error = await post('/status', {
+    agent: 'cursor',
+    status: 'error',
+    detail: 'Cursor · Error'
+  })
+  assert(error.ok && error.json?.agents?.cursor === 'error', 'cursor error status')
+
   const idle = await post('/status', {
     agent: 'cursor',
     status: 'idle',

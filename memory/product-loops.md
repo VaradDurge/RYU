@@ -10,8 +10,8 @@ Source of truth (long): `docs/product-and-feature-loops.md`
 
 | ID | Loop | Phase | Status |
 | --- | --- | --- | --- |
-| F1 | Permission decide (Allow/Deny) | 0–1 | Claude path wired + script-verified; live WSL sign-off pending |
-| F2 | Attention / presence (rings) | 0–1 | Cursor live OK; Claude wired + verify OK |
+| F1 | Permission decide (Allow/Deny) | 0–1 | Track A S1–S4/S7 green (headless); live WSL sign-off pending |
+| F2 | Attention / presence (rings) | 0–1 | Track A S5–S6 green; Cursor live OK; Claude wired + verify OK |
 | F3 | Collapse / return-to-calm | 0–1 | UI exists; stale cards can stick → restart RYU |
 | F4 | Questions / AskUserQuestion | 3 | Logged — not started |
 | F5 | Multi-item queue | 2 | Logged — not started |

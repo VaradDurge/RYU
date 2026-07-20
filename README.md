@@ -118,6 +118,8 @@ Trust hooks in Codex if prompted (`/hooks`). Permission → dock (Codex icon) �
 | `npm run hook:install:codex` | Codex PermissionRequest + PreToolUse |
 | `npm run verify:phase1` | Bridge roundtrips (Cursor/Codex/Claude) + Claude hook |
 | `npm run verify:claude-resume` | Claude Resume path (allow / dual-waiter / deny / fail-open) |
+| `npm run verify:track-a` | Headless S1–S8 contract suite (no Electron / no live agents) |
+| `npm run bridge:headless` | Bridge HTTP only on `:41999` (for verifies) |
 | `node scripts/ryu-cursor-acp.mjs` | Cursor CLI ACP ↔ RYU |
 | `npm run capture:demo` | Windows dock screenshots |
 
