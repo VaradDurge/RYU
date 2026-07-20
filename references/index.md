@@ -1,21 +1,19 @@
-# References (pointers only)
+# References — external research
 
-Do not duplicate; open the file when needed.
+**Purpose:** online research, API docs, competitor/UX sources useful to this run.  
+**Not for:** in-repo file maps (see `AGENTS.md`, `memory/`, `docs/`).
 
-| Topic | File |
-| --- | --- |
-| Agent workflow / coding rules | `AGENTS.md` |
-| Catch-up / current state | `UPDATES.md` |
-| Product + feature loops | `docs/product-and-feature-loops.md` |
-| Tech execution | `docs/technical-execution-plan.md` |
-| Win/Mac split + UI SoT | `docs/parallel-work-split.md` |
-| Live Claude checklist | `docs/RESUME.md` |
-| Pain / MVP | `docs/pain-points-and-mvp.md` |
-| Overview | `docs/overview.md` |
-| Runbook | `README.md` |
-| Mac shell | `diff/mac/README.md` |
-| Shared types | `shared/types.ts` |
-| Bridge | `electron/bridge.ts` |
-| Claude permission hook | `hooks/ryu-hook.mjs` |
-| Claude status hook | `hooks/ryu-claude-status.mjs` |
-| Cursor status hook | `hooks/ryu-cursor-status.mjs` |
+## Protocol
+
+- After any web search that changes how we build: add a short note here + row below.
+- Keep notes ≤20 lines: link · why it matters · facts agents must not re-discover.
+- Prefer primary docs over blogs.
+
+## Index
+
+| Topic | Note | Why it matters |
+| --- | --- | --- |
+| Claude Code hooks | `references/claude-hooks.md` | Resume Allow/Deny stdout contract |
+| Cursor hooks | `references/cursor-hooks.md` | Status rings (not every-tool gate) |
+| Apple Live Activities / Island | `references/apple-live-activities.md` | UX language for Idle→Expand→Act |
+| Competitors (desktop islands) | `references/competitors.md` | Positioning; Windows gap |

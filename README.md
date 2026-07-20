@@ -127,7 +127,7 @@ Bridge: `127.0.0.1:41999` · `~/.ryu/port` · `GET /agents` for live ring state
 
 ## Docs
 
-- Agents: [`AGENTS.md`](./AGENTS.md) · memory [`memory/index.md`](./memory/index.md) · plan [`tasks/to-do.md`](./tasks/to-do.md) · lessons [`lessons/index.md`](./lessons/index.md)
+- Agents: [`AGENTS.md`](./AGENTS.md) · memory [`memory/index.md`](./memory/index.md) · plan [`tasks/to-do.md`](./tasks/to-do.md) · lessons [`lessons/index.md`](./lessons/index.md) · external research [`references/index.md`](./references/index.md)
 - Product loops: [`docs/product-and-feature-loops.md`](./docs/product-and-feature-loops.md)  
 - UI source of truth: [`docs/parallel-work-split.md`](./docs/parallel-work-split.md) §6  
 - Mac shell (notch / notice window): [`diff/mac/README.md`](./diff/mac/README.md) — status pipeline was ported to Windows; Mac-only chrome stays under `diff/mac/`

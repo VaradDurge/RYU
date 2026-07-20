@@ -14,7 +14,7 @@ Floating dock for AI coding-agent **attention + permissions**. Spine: **Idle →
 | 2 | `tasks/to-do.md` | Plan first (default). Log work here before coding |
 | 3 | `memory/status.md` + `memory/product-loops.md` | What works / which loops |
 | 4 | `lessons/index.md` | Past failures — do not repeat |
-| 5 | `references/index.md` | Pointers into long docs/code |
+| 5 | `references/index.md` | External research (web/API/UX/competitors) |
 
 Catch-up narrative (human): `UPDATES.md`. Long product plan: `docs/product-and-feature-loops.md`.
 
@@ -23,8 +23,9 @@ Catch-up narrative (human): `UPDATES.md`. Long product plan: `docs/product-and-f
 1. **Plan default** — update `tasks/to-do.md` before implementing. No skip.
 2. **Before code** — skim memory + relevant lessons.
 3. **During / after** — if a product/feature loop changes, or something works / fails / goes amiss → update `memory/*` and add `lessons/YYYY-MM-DD-slug.md` + row in `lessons/index.md`.
-4. **Keep memory cheap** — bullets and links only; never paste whole docs into memory.
-5. **Home-only items** stay marked home-only (live Claude/Cursor). Do not claim them done from scripts alone.
+4. **External research** — useful web/API findings go in `references/` (short note + index row), not in memory essays.
+5. **Keep memory cheap** — bullets and links only; never paste whole docs into memory.
+6. **Home-only items** stay marked home-only (live Claude/Cursor). Do not claim them done from scripts alone.
 
 ## Hard product rules
 

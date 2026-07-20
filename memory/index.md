@@ -10,7 +10,7 @@ Coding rules + workflow: **`AGENTS.md`** (repo root).
 | How to code / agent rules | `AGENTS.md` |
 | Product / feature loop status | `memory/product-loops.md` |
 | Working / broken paths | `memory/status.md` |
-| Pointers to long docs | `references/index.md` |
+| External research (web/API/competitors) | `references/index.md` |
 | Active plan + backlog | `tasks/to-do.md` |
 | Failures / wins to reuse | `lessons/index.md` → linked notes |
 
