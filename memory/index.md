@@ -1,11 +1,13 @@
 # Memory index (read first)
 
-Minimal compound memory for agents. Prefer this over re-scanning the whole repo.
+Minimal compound memory for agents. Prefer this over re-scanning the whole repo.  
+Coding rules + workflow: **`AGENTS.md`** (repo root).
 
 ## Where to look
 
 | Need | Path |
 | --- | --- |
+| How to code / agent rules | `AGENTS.md` |
 | Product / feature loop status | `memory/product-loops.md` |
 | Working / broken paths | `memory/status.md` |
 | Pointers to long docs | `references/index.md` |

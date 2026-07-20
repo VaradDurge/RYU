@@ -6,6 +6,7 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 ## Plan (current)
 
 - [x] Seed `memory/` `references/` `tasks/` `lessons/` + protocol
+- [x] Add `AGENTS.md` so coding agents know memory + how to code
 - [ ] User picks remote track: **A** harden verifies · **B** Phase2/queue+Codex · **both**
 - [ ] After pick: plan concrete verify/cases in this file, then implement
 

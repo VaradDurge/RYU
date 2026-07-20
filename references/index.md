@@ -4,6 +4,7 @@ Do not duplicate; open the file when needed.
 
 | Topic | File |
 | --- | --- |
+| Agent workflow / coding rules | `AGENTS.md` |
 | Catch-up / current state | `UPDATES.md` |
 | Product + feature loops | `docs/product-and-feature-loops.md` |
 | Tech execution | `docs/technical-execution-plan.md` |
