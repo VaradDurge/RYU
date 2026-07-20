@@ -31,9 +31,15 @@ export class RyuBridge {
     claude: 'idle',
     codex: 'idle'
   }
+  private onStatus?: (update: AgentStatusUpdate) => void
 
   attachWindow(win: BrowserWindow): void {
     this.win = win
+  }
+
+  /** Main process hook — drive notch dots from the same /status stream */
+  setStatusListener(listener: (update: AgentStatusUpdate) => void): void {
+    this.onStatus = listener
   }
 
   async start(preferredPort = DEFAULT_PORT): Promise<number> {
@@ -124,6 +130,15 @@ export class RyuBridge {
 
       this.pending.set(event.id, { event, res, timer })
       this.win?.webContents.send('ryu:event', event)
+      // Permission event also lights the yellow notch dot for that agent
+      const approval: AgentStatusUpdate = {
+        agent: event.agent,
+        status: 'approval',
+        detail: event.preview
+      }
+      this.agentStatus[event.agent] = 'approval'
+      this.win?.webContents.send('ryu:agentStatus', approval)
+      this.onStatus?.(approval)
       return
     }
 
@@ -159,6 +174,7 @@ export class RyuBridge {
       }
       this.agentStatus[update.agent] = update.status
       this.win?.webContents.send('ryu:agentStatus', update)
+      this.onStatus?.(update)
       this.json(res, 200, { ok: true, agents: this.agentStatus })
       return
     }

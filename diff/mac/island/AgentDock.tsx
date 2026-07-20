@@ -79,7 +79,13 @@ export function AgentDock({
     const el = btnRefs.current[agent]
     if (!el) return
     const r = el.getBoundingClientRect()
-    setTipPos({ x: r.left + r.width / 2, y: r.bottom + 8 })
+    // Keep tip centered on the icon but clamped inside the island window
+    const half = 190
+    const x = Math.min(
+      Math.max(r.left + r.width / 2, half + 8),
+      window.innerWidth - half - 8
+    )
+    setTipPos({ x, y: r.bottom + 8 })
   }
 
   const summary = hovered ? stripAgentPrefix(summaries[hovered], hovered) : ''
@@ -216,8 +222,9 @@ function stripAgentPrefix(summary: string, agent: RyuAgent): string {
 
 const tipShell: CSSProperties = {
   position: 'fixed',
+  width: 'max-content',
   minWidth: 148,
-  maxWidth: 228,
+  maxWidth: 380,
   pointerEvents: 'none',
   zIndex: 2147483000,
   overflow: 'visible'
@@ -288,5 +295,9 @@ const tipBody: CSSProperties = {
   fontWeight: 400,
   letterSpacing: '-0.01em',
   paddingLeft: 11,
-  marginTop: 4
+  marginTop: 4,
+  whiteSpace: 'nowrap',
+  maxWidth: 356,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
 }

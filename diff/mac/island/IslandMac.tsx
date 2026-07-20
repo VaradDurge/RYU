@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { IslandMode, RyuAgent, RyuEvent } from '../../../shared/types'
 import { AgentDock } from './AgentDock'
 import { Expanded } from './Expanded'
@@ -22,8 +22,11 @@ import { macTheme } from './theme'
 import { useAgentStatuses } from './useAgentStatuses'
 
 const LEAVE_GRACE_MS = 320
+/** Fixed shell sizes — never measure mid-animation (that resized the OS window every frame). */
 const TUCKED_SIZE = { width: 140, height: 36 }
-const SIZE_PAD = 8
+/** Wide enough for hover tips that size to their summary text */
+const DOCK_SIZE = { width: 420, height: 200 }
+const PERMISSION_SIZE = { width: 440, height: 360 }
 
 export function IslandMac({
   mode,
@@ -51,11 +54,7 @@ export function IslandMac({
   const insideRef = useRef(false)
   const lastEventId = useRef<string | null>(null)
 
-  const { statuses, summaries, notices, dismissNotice } = useAgentStatuses(
-    mode,
-    event,
-    lastDecision
-  )
+  const { statuses, summaries } = useAgentStatuses(mode, event, lastDecision)
   const showResolved = mode === 'resolved' && Boolean(lastDecision)
   const showDock = peek || Boolean(selectedAgent) || showResolved
 
@@ -132,6 +131,18 @@ export function IslandMac({
     }, LEAVE_GRACE_MS)
   }
 
+  // Native cursor tracking (main process) — Chromium hover on transparent
+  // windows is unreliable. This is the sole hover source on Mac.
+  const setHoveringRef = useRef(setHovering)
+  setHoveringRef.current = setHovering
+
+  useEffect(() => {
+    if (!window.ryu?.onIslandHover) return
+    return window.ryu.onIslandHover((inside) => {
+      setHoveringRef.current(inside)
+    })
+  }, [])
+
   useEffect(() => {
     return () => {
       if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
@@ -140,29 +151,22 @@ export function IslandMac({
     }
   }, [])
 
-  const contentRef = useRef<HTMLDivElement>(null)
-
-  // Compact panel: hug visible content so we don't block the desktop
-  useLayoutEffect(() => {
-    const el = contentRef.current
-    if (!el || !window.ryu?.setIslandSize) return
-
-    const publish = () => {
-      if (!showDock) {
-        window.ryu?.setIslandSize?.(TUCKED_SIZE)
-        return
-      }
-      const rect = el.getBoundingClientRect()
-      window.ryu?.setIslandSize?.({
-        width: Math.ceil(rect.width) + SIZE_PAD,
-        height: Math.ceil(rect.height) + SIZE_PAD
-      })
+  // Discrete shell sizes only — grow before animate, shrink after tuck.
+  useEffect(() => {
+    if (!window.ryu?.setIslandSize) return
+    if (showPermission) {
+      window.ryu.setIslandSize(PERMISSION_SIZE)
+      return
     }
-
-    publish()
-    const ro = new ResizeObserver(publish)
-    ro.observe(el)
-    return () => ro.disconnect()
+    if (showDock || showResolved) {
+      window.ryu.setIslandSize(DOCK_SIZE)
+      return
+    }
+    // Let exit animation finish before shrinking the OS window
+    const t = window.setTimeout(() => {
+      window.ryu?.setIslandSize?.(TUCKED_SIZE)
+    }, 280)
+    return () => window.clearTimeout(t)
   }, [showDock, showPermission, showResolved])
 
   const stackVariants = reduce ? islandFromNotchReduced : islandFromNotch
@@ -178,19 +182,12 @@ export function IslandMac({
         fontFamily: macTheme.font,
         userSelect: 'none',
         WebkitAppRegion: 'no-drag',
-        // Compact panel is the hit target — whole surface is interactive
         pointerEvents: 'auto',
         position: 'relative',
         background: 'transparent'
       } as CSSProperties}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
     >
-      {/* Blue / red dots — right of the notch (menu-bar band), not below */}
       <NotchNotices
-        notices={notices}
-        onDismiss={dismissNotice}
-        islandOpen={showDock}
         onSelect={(agent) => {
           selectAgent(agent)
           setPeek(true)
@@ -199,7 +196,6 @@ export function IslandMac({
       />
 
       <div
-        ref={contentRef}
         data-ryu-island
         style={{
           pointerEvents: 'auto',
@@ -211,25 +207,6 @@ export function IslandMac({
           minWidth: showDock ? 160 : 120
         }}
       >
-        {/* Always-visible tuck lip under the notch — hover wake target */}
-        <div
-          aria-hidden
-          style={{
-            width: showDock ? 36 : 44,
-            height: showDock ? 3 : 5,
-            borderRadius: 999,
-            flexShrink: 0,
-            marginBottom: showDock ? 5 : 0,
-            background: showDock
-              ? 'rgba(255,255,255,0.22)'
-              : 'rgba(255,255,255,0.42)',
-            boxShadow: showDock
-              ? 'none'
-              : '0 0 0 0.5px rgba(0,0,0,0.55), 0 1px 6px rgba(0,0,0,0.35)',
-            transition: 'width 180ms ease, height 180ms ease, background 180ms ease'
-          }}
-        />
-
         <AnimatePresence mode="popLayout">
           {showDock && (
             <motion.div

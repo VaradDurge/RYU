@@ -2,9 +2,9 @@ import type { RyuAgent, RyuEvent } from '../../../shared/types'
 import type { DockStatus } from '../types'
 import { AGENT_LABELS } from '../types'
 
-const MAX = 72
+const MAX = 96
 
-/** Truncate for the icon hover chip */
+/** Truncate for the icon hover chip — tip width grows with content */
 export function clipSummary(text: string, max = MAX): string {
   const t = text.replace(/\s+/g, ' ').trim()
   if (t.length <= max) return t

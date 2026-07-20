@@ -1,22 +1,24 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 
-/** Approx hardware notch width (logical px) — clear the black cutout */
-const NOTCH_WIDTH = 200
-const NOTICE_GAP = 3
-const NOTICE_WIN_W = 80
-const MENU_BAND = 24
+/** Clear the black notch cutout — vertical stack sits tight to its right */
+const NOTCH_WIDTH = 196
+const NOTICE_GAP = 1
+/** Narrow column — one small-dot wide, up to three stacked */
+const NOTICE_WIN_W = 12
+const NOTICE_WIN_H = 42
 
 export type NoticePayload = {
   id: string
   agent: 'cursor' | 'claude' | 'codex'
-  kind: 'finished' | 'failed'
+  kind: 'running' | 'permission' | 'failed' | 'finished'
   ts: number
 }
 
 /**
- * Tiny panel in the menu-bar gap immediately RIGHT of the notch.
- * enableLargerThanScreen + panel lets us sit at y=0 (macOS otherwise clamps to workArea).
+ * Tiny strip immediately RIGHT of the notch.
+ * Level 2 screen-saver so it stays above the island window (which covers
+ * this x-range when the dock is expanded).
  */
 export function createNoticeWindow(): BrowserWindow {
   const b = noticeBounds()
@@ -29,7 +31,6 @@ export function createNoticeWindow(): BrowserWindow {
     show: false,
     frame: false,
     transparent: true,
-    type: 'panel',
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
@@ -39,7 +40,6 @@ export function createNoticeWindow(): BrowserWindow {
     fullscreenable: false,
     hasShadow: false,
     focusable: false,
-    // Critical: allow y=0 inside the menu-bar band
     enableLargerThanScreen: true,
     backgroundColor: '#00000000',
     acceptFirstMouse: true,
@@ -51,7 +51,7 @@ export function createNoticeWindow(): BrowserWindow {
     }
   })
 
-  win.setAlwaysOnTop(true, 'screen-saver', 1)
+  raiseNoticeWindow(win)
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   win.setIgnoreMouseEvents(true, { forward: true })
 
@@ -70,21 +70,31 @@ export function noticeBounds(): { x: number; y: number; width: number; height: n
 
   return {
     x: Math.round(x + width / 2 + NOTCH_WIDTH / 2 + NOTICE_GAP),
-    y, // display top — menu bar / green-circle zone
+    y: Math.round(y + 1),
     width: NOTICE_WIN_W,
-    height: MENU_BAND
+    height: NOTICE_WIN_H
   }
+}
+
+export function raiseNoticeWindow(win: BrowserWindow): void {
+  if (win.isDestroyed()) return
+  // Relative level above the island (island uses screen-saver, 1)
+  win.setAlwaysOnTop(true, 'screen-saver', 2)
+  win.moveTop()
 }
 
 export function repositionNoticeWindow(win: BrowserWindow): void {
   if (win.isDestroyed()) return
   forceBounds(win)
+  raiseNoticeWindow(win)
 }
 
 export function showNotices(win: BrowserWindow, notices: NoticePayload[]): void {
   if (win.isDestroyed()) return
 
-  win.webContents.send('ryu:notices', notices)
+  if (!win.webContents.isDestroyed()) {
+    win.webContents.send('ryu:notices', notices)
+  }
 
   if (notices.length === 0) {
     win.setIgnoreMouseEvents(true, { forward: true })
@@ -93,11 +103,14 @@ export function showNotices(win: BrowserWindow, notices: NoticePayload[]): void 
   }
 
   win.setIgnoreMouseEvents(false)
-  win.setAlwaysOnTop(true, 'screen-saver', 1)
-  win.showInactive()
+  if (!win.isVisible()) win.showInactive()
   forceBounds(win)
-  win.moveTop()
-  console.log(`[ryu] notice window bounds`, win.getBounds())
+  raiseNoticeWindow(win)
+  console.log(
+    '[ryu] notices',
+    notices.map((n) => `${n.agent}:${n.kind}`).join(', '),
+    win.getBounds()
+  )
 }
 
 function forceBounds(win: BrowserWindow): void {
@@ -108,5 +121,6 @@ function forceBounds(win: BrowserWindow): void {
     if (win.isDestroyed()) return
     win.setBounds(b, false)
     win.setPosition(b.x, b.y, false)
-  }, 50)
+    raiseNoticeWindow(win)
+  }, 40)
 }

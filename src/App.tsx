@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { RyuDecision } from '../shared/types'
+import { DemoInjectSurface } from '../diff/mac/island/DemoInjectSurface'
 import { IslandMac } from '../diff/mac/island/IslandMac'
 import { NoticeSurface } from '../diff/mac/island/NoticeSurface'
 import { Island } from './island/Island'
@@ -10,14 +11,25 @@ const isMac =
   (window.ryu?.platform === 'darwin' ||
     (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)))
 
+const surface =
+  typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('surface')
+    : null
+
 const isNoticeSurface =
   typeof window !== 'undefined' &&
-  (window.ryu?.isNoticeSurface?.() === true ||
-    new URLSearchParams(window.location.search).get('surface') === 'notices')
+  (window.ryu?.isNoticeSurface?.() === true || surface === 'notices')
+
+const isDemoSurface =
+  typeof window !== 'undefined' &&
+  (window.ryu?.isDemoSurface?.() === true || surface === 'demo')
 
 export default function App() {
   if (isNoticeSurface) {
     return <NoticeSurface />
+  }
+  if (isDemoSurface) {
+    return <DemoInjectSurface />
   }
 
   return <IslandApp />

@@ -9,7 +9,6 @@ import type {
 import type { AgentStatusMap, DockStatus } from '../types'
 import { DOCK_AGENTS } from '../types'
 import { clipSummary, fallbackSummary, summaryFromEvent } from './hoverSummary'
-import type { NotchNotice } from './NotchNotices'
 
 const IDLE: AgentStatusMap = {
   cursor: 'idle',
@@ -23,16 +22,14 @@ const IDLE_SUMMARIES: Record<RyuAgent, string> = {
   codex: fallbackSummary('codex', 'idle')
 }
 
-/** If no running/approval heartbeat for this long → fall back to blue idle */
 const WATCHDOG_MS = 45_000
 const ERROR_SETTLE_MS = 2800
-const MAX_NOTICES = 6
 
 export type AgentSummaryMap = Record<RyuAgent, string>
 
 /**
- * Live per-agent rings + short hover summaries from bridge POST /status.
- * Also emits notch-side notices: blue = finished, red = failed.
+ * Live per-agent dock rings + hover summaries from bridge POST /status.
+ * Notch dots are owned by the main process (see noticeState.ts).
  */
 export function useAgentStatuses(
   mode: IslandMode,
@@ -41,12 +38,9 @@ export function useAgentStatuses(
 ): {
   statuses: AgentStatusMap
   summaries: AgentSummaryMap
-  notices: NotchNotice[]
-  dismissNotice: (id: string) => void
 } {
   const [statuses, setStatuses] = useState<AgentStatusMap>(IDLE)
   const [summaries, setSummaries] = useState<AgentSummaryMap>(IDLE_SUMMARIES)
-  const [notices, setNotices] = useState<NotchNotice[]>([])
   const timers = useRef<Partial<Record<RyuAgent, number>>>({})
   const watchdogs = useRef<Partial<Record<RyuAgent, number>>>({})
   const statusesRef = useRef(statuses)
@@ -68,27 +62,9 @@ export function useAgentStatuses(
     }
   }
 
-  const dismissNotice = (id: string) => {
-    setNotices((prev) => prev.filter((n) => n.id !== id))
-  }
-
-  const pushNotice = (agent: RyuAgent, kind: NotchNotice['kind']) => {
-    const id = `${agent}-${kind}-${Date.now()}`
-    const notice: NotchNotice = { id, agent, kind, ts: Date.now() }
-    setNotices((prev) => {
-      const rest = prev.filter((n) => n.agent !== agent)
-      return [...rest, notice].slice(-MAX_NOTICES)
-    })
-    // No auto-dismiss — dots persist until user opens the island
-  }
-
   const armWatchdog = (agent: RyuAgent) => {
     clearWatchdog(agent)
     watchdogs.current[agent] = window.setTimeout(() => {
-      const prev = statusesRef.current[agent]
-      if (prev === 'running') {
-        pushNotice(agent, 'finished')
-      }
       setStatuses((s) => {
         if (s[agent] === 'running' || s[agent] === 'approval') {
           return { ...s, [agent]: 'idle' as DockStatus }
@@ -96,13 +72,21 @@ export function useAgentStatuses(
         return s
       })
       setSummaries((s) => ({ ...s, [agent]: fallbackSummary(agent, 'idle') }))
+      // Mirror idle to bridge so notch dots update too
+      void fetch('http://127.0.0.1:41999/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent,
+          status: 'idle',
+          detail: fallbackSummary(agent, 'idle')
+        })
+      }).catch(() => {})
       delete watchdogs.current[agent]
     }, WATCHDOG_MS)
   }
 
   const applyStatus = (agent: RyuAgent, status: DockStatus, detail?: string) => {
-    const prev = statusesRef.current[agent]
-
     clearTimer(agent)
     setStatuses((s) => ({ ...s, [agent]: status }))
 
@@ -111,13 +95,6 @@ export function useAgentStatuses(
         ? clipSummary(detail)
         : fallbackSummary(agent, status)
     setSummaries((s) => ({ ...s, [agent]: line }))
-
-    // Notch notifications (right of notch)
-    if (status === 'idle' && prev === 'running') {
-      pushNotice(agent, 'finished')
-    } else if (status === 'error' && prev !== 'error') {
-      pushNotice(agent, 'failed')
-    }
 
     if (status === 'running' || status === 'approval') {
       armWatchdog(agent)
@@ -141,7 +118,6 @@ export function useAgentStatuses(
     })
   }, [])
 
-  // Permission pending → yellow + preview line
   useEffect(() => {
     if (!event) return
     if (mode !== 'attention' && mode !== 'expanded') return
@@ -153,7 +129,11 @@ export function useAgentStatuses(
     if (lastDecision === 'deny') {
       applyStatus(event.agent, 'error', `${event.agent} · Denied`)
     } else {
-      applyStatus(event.agent, 'running', clipSummary(event.preview || 'Approved — continuing'))
+      applyStatus(
+        event.agent,
+        'running',
+        clipSummary(event.preview || 'Approved — continuing')
+      )
     }
   }, [mode, lastDecision, event?.id, event?.agent])
 
@@ -163,12 +143,10 @@ export function useAgentStatuses(
         clearTimer(agent)
         clearWatchdog(agent)
       }
-      for (const t of noticeTimers.current.values()) window.clearTimeout(t)
-      noticeTimers.current.clear()
     }
   }, [])
 
-  return { statuses, summaries, notices, dismissNotice }
+  return { statuses, summaries }
 }
 
 export function anyAgentActive(statuses: AgentStatusMap): boolean {

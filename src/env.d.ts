@@ -5,7 +5,7 @@ export {}
 type NoticePayload = {
   id: string
   agent: RyuAgent
-  kind: 'finished' | 'failed'
+  kind: 'running' | 'permission' | 'failed' | 'finished'
   ts: number
 }
 
@@ -14,10 +14,11 @@ declare global {
     ryu: {
       setInteractive: (interactive: boolean) => void
       setIslandSize?: (size: { width: number; height: number }) => void
+      onIslandHover?: (handler: (inside: boolean) => void) => () => void
       decide: (decision: RyuDecision) => void
       onEvent: (handler: (event: RyuEvent) => void) => () => void
       onAgentStatus: (handler: (update: AgentStatusUpdate) => void) => () => void
-      setNotices?: (notices: NoticePayload[]) => void
+      clearNotices?: () => void
       onNotices?: (handler: (notices: NoticePayload[]) => void) => () => void
       noticesReady?: () => void
       noticeClicked?: (payload: { id: string; agent: RyuAgent }) => void
@@ -27,6 +28,7 @@ declare global {
       isDev: () => boolean
       platform: 'darwin' | 'win32' | 'linux'
       isNoticeSurface?: () => boolean
+      isDemoSurface?: () => boolean
     }
   }
 }
