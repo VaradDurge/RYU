@@ -48,12 +48,13 @@ export function Island({
   const leaveTimer = useRef<number | null>(null)
   const insideRef = useRef(false)
 
-  const { statuses, summaries } = useAgentStatuses(mode, event, lastDecision)
+  const { statuses, summaries, health } = useAgentStatuses(mode, event, lastDecision)
   const ambient = anyAgentActive(statuses)
+  const bridgeUnavailable = health.bridge === 'unavailable'
 
   const pendingAttention = mode === 'attention'
   const lockedOpen = mode === 'expanded' || mode === 'resolved'
-  const showDock = topHover || lockedOpen || pendingAttention || ambient
+  const showDock = topHover || lockedOpen || pendingAttention || ambient || bridgeUnavailable
   const showPermissionCard = mode === 'expanded' && Boolean(event)
   const showStatusCard =
     Boolean(selectedAgent) &&
@@ -68,16 +69,16 @@ export function Island({
     onHoverChange(insideRef.current)
   }, [mode, onHoverChange, showStatusCard])
 
+  // P2.1: compact Attention only — do not auto-expand the permission card.
   useEffect(() => {
     if (mode === 'attention' && event) {
       setSelectedAgent(event.agent)
-      onExpand()
     }
-  }, [mode, event, onExpand])
+  }, [mode, event])
 
   useEffect(() => {
-    if (mode === 'idle' && !ambient) setSelectedAgent(null)
-  }, [mode, ambient])
+    if (mode === 'idle' && !ambient && !bridgeUnavailable) setSelectedAgent(null)
+  }, [mode, ambient, bridgeUnavailable])
 
   const setHovering = (next: boolean) => {
     if (leaveTimer.current) {
@@ -115,7 +116,10 @@ export function Island({
 
   const onSelectAgent = (agent: RyuAgent) => {
     setSelectedAgent(agent)
-    if (event && event.agent === agent) onExpand()
+    // Deliberate expand: click/keyboard on the requesting agent opens Understand.
+    if (event && event.agent === agent && (mode === 'attention' || mode === 'expanded')) {
+      onExpand()
+    }
   }
 
   return (
@@ -267,6 +271,7 @@ export function Island({
                       agent={selectedAgent}
                       status={statuses[selectedAgent]}
                       summary={summaries[selectedAgent]}
+                      bridgeUnavailable={bridgeUnavailable}
                     />
                   </motion.div>
                 )}

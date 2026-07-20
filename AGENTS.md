@@ -53,7 +53,8 @@ Catch-up narrative (human): `UPDATES.md`. Long product plan: `docs/product-and-f
 npm install
 npm run verify:track-a         # S1–S8 headless
 npm run verify:track-b         # S9–S12 + Track A gate
-npm run verify:phase1-remediation  # P1.1–P1.5 trust/recovery (preferred remote gate)
+npm run verify:phase1-remediation  # P1.1–P1.5 trust/recovery
+npm run verify:phase2-surface      # P2.1–P2.6 surface + Phase1/Track B gates (preferred remote gate)
 npm run bridge:headless        # bridge only, no Electron
 npm run dev                    # needs display/Electron where available
 npm run verify:cursor-status   # needs bridge up
@@ -62,7 +63,8 @@ npm run verify:claude-resume
 npm run verify:phase1
 ```
 
-Live Claude/Cursor Resume = human laptop checklist in `docs/RESUME.md` / `tasks/to-do.md` (home-only).
+Live Claude/Cursor Resume = human laptop checklist in `docs/RESUME.md` / `tasks/to-do.md` (home-only).  
+Phase 2 home UX: `docs/HOME-PHASE2.md`.
 
 ## Done means
 

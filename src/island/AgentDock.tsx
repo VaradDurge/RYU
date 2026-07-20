@@ -25,6 +25,8 @@ function statusLabel(status: LiveAgentStatus): string {
       return 'Waiting'
     case 'error':
       return 'Error'
+    case 'stale':
+      return 'Stale'
   }
 }
 
@@ -72,12 +74,27 @@ export function AgentDock({
             style={{
               ...slotBtn,
               cursor: 'pointer',
-              opacity: selected ? 1 : status === 'idle' ? 0.72 : 0.92
+              opacity: selected ? 1 : status === 'idle' ? 0.72 : status === 'stale' ? 0.8 : 0.92
             }}
           >
             <div style={{ position: 'relative', width: 26, height: 26 }}>
               <StatusRing status={status} size={26} />
               <AgentIcon agent={agent} size={26} />
+              {status === 'approval' && selected ? (
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    right: -2,
+                    top: -2,
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: theme.waiting,
+                    boxShadow: `0 0 6px ${theme.waiting}`
+                  }}
+                />
+              ) : null}
             </div>
           </button>
         )

@@ -87,6 +87,8 @@ export function makeEvent(overrides = {}) {
     risk: overrides.risk || 'normal',
     ts: overrides.ts || Date.now(),
     pairKey: overrides.pairKey,
-    hookKind: overrides.hookKind
+    hookKind: overrides.hookKind,
+    detail: overrides.detail,
+    detailTruncated: overrides.detailTruncated
   }
 }

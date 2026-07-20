@@ -5,12 +5,13 @@ export type DockSlotId = RyuAgent | 'cube' | 'sparkle' | 'terminal' | 'sailboat'
 
 /**
  * Live agent ring status:
- * - idle     → blue (idle or finished)
+ * - idle     → blue (known idle / finished)
  * - running  → green (processing)
  * - approval → yellow (needs permission)
  * - error    → red (error / deny / destructive fail)
+ * - stale    → gray (no fresh evidence; not idle)
  */
-export type LiveAgentStatus = 'idle' | 'running' | 'approval' | 'error'
+export type LiveAgentStatus = 'idle' | 'running' | 'approval' | 'error' | 'stale'
 
 /** @deprecated Prefer LiveAgentStatus for real agents; kept for decorative slots */
 export type DockStatus = LiveAgentStatus | 'ok' | 'waiting' | 'danger' | 'muted'

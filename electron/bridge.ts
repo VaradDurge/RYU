@@ -11,12 +11,14 @@ export { DEFAULT_PORT, computeInteractiveBounds }
 export class RyuBridge {
   private core: RyuBridgeCore | null = null
   private win: BrowserWindow | null = null
+  private startError: string | null = null
 
   attachWindow(win: BrowserWindow): void {
     this.win = win
   }
 
   async start(preferredPort = DEFAULT_PORT): Promise<number> {
+    this.startError = null
     this.core = new RyuBridgeCore({
       port: preferredPort,
       headless: false,
@@ -31,7 +33,14 @@ export class RyuBridge {
         this.win?.webContents.send('ryu:agentStatus', update)
       }
     })
-    return this.core.start()
+    try {
+      return await this.core.start()
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code
+      this.startError = code || (err as Error)?.message || 'start_failed'
+      this.core = null
+      throw err
+    }
   }
 
   stop(): void {
@@ -40,14 +49,24 @@ export class RyuBridge {
   }
 
   getSnapshot() {
-    return (
-      this.core?.getSnapshot() || {
-        revision: 0,
-        events: [] as RyuEvent[],
-        ids: [] as string[],
-        agents: { cursor: 'idle' as const, claude: 'idle' as const, codex: 'idle' as const }
+    if (this.core) return this.core.getSnapshot()
+    return {
+      revision: 0,
+      events: [] as RyuEvent[],
+      ids: [] as string[],
+      agents: { cursor: 'idle' as const, claude: 'idle' as const, codex: 'idle' as const },
+      agentMeta: {
+        cursor: { revision: 0, lastSeenAt: 0, integration: 'unknown' as const },
+        claude: { revision: 0, lastSeenAt: 0, integration: 'unknown' as const },
+        codex: { revision: 0, lastSeenAt: 0, integration: 'unknown' as const }
+      },
+      health: {
+        bridge: 'unavailable' as const,
+        port: DEFAULT_PORT,
+        reason: this.startError || 'not_started',
+        startedAt: null
       }
-    )
+    }
   }
 
   getToken(): string {

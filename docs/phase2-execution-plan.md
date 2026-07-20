@@ -1,7 +1,7 @@
 # Phase 2 execution plan — truthful, usable surface
 
-**Status:** plan only — do not implement until user says go.  
-**Prerequisite:** Phase 1 remote suite is green. Complete home validation in [`HOME-PHASE1.md`](./HOME-PHASE1.md) before calling Phase 2 product-complete.  
+**Status:** remote implementation done — `npm run verify:phase2-surface` PASS.  
+**Home validation:** [`HOME-PHASE2.md`](./HOME-PHASE2.md) (keep [`HOME-PHASE1.md`](./HOME-PHASE1.md) open).  
 **Source:** [`core-loop-failure-analysis.md`](./core-loop-failure-analysis.md) F6–F9, F12–F15 and [`core-loop-remediation-plan.md`](./core-loop-remediation-plan.md).
 
 ## User goal

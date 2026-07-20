@@ -172,13 +172,13 @@ async function main() {
       assert((await hFail.done) === 0 && hFail.getStdout().trim() === '', 'codex fail-open')
     })
 
-    await caseRun('S12', 'Watchdog — running → idle without refresh', async () => {
+    await caseRun('S12', 'Watchdog — running/approval → stale without refresh (not idle)', async () => {
       await post('/status', { agent: 'cursor', status: 'running', detail: 'watchdog run' })
       await sleep(WATCHDOG_MS + 250)
-      assert((await get('/agents')).json?.agents?.cursor === 'idle', 'cursor idle')
+      assert((await get('/agents')).json?.agents?.cursor === 'stale', 'cursor stale')
       await post('/status', { agent: 'claude', status: 'approval', detail: 'watchdog approval' })
       await sleep(WATCHDOG_MS + 250)
-      assert((await get('/agents')).json?.agents?.claude === 'idle', 'claude idle')
+      assert((await get('/agents')).json?.agents?.claude === 'stale', 'claude stale')
     })
   } finally {
     await stopBridge(bridge)

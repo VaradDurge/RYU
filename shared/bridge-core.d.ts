@@ -1,9 +1,18 @@
-import type { AgentStatusUpdate, RyuAgent, RyuDecision, RyuEvent } from './types'
+import type {
+  AgentStatusMeta,
+  AgentStatusUpdate,
+  BridgeHealth,
+  BridgeSnapshot,
+  RyuAgent,
+  RyuDecision,
+  RyuEvent
+} from './types'
 
 export const DEFAULT_PORT: number
 export const DECISION_TIMEOUT_MS: number
 export const AGENT_STATUS_WATCHDOG_MS: number
 export const MAX_BODY_BYTES: number
+export const MAX_EVENT_DETAIL_BYTES: number
 export const PAIR_WINDOW_MS: number
 export const AGENTS: RyuAgent[]
 export const STATUSES: Array<AgentStatusUpdate['status']>
@@ -35,13 +44,21 @@ export class RyuBridgeCore {
   })
   start(): Promise<number>
   stop(): void
-  getSnapshot(): {
-    revision: number
-    events: RyuEvent[]
-    ids: string[]
-    agents: Record<RyuAgent, AgentStatusUpdate['status']>
-  }
+  getSnapshot(): BridgeSnapshot
   getToken(): string
+  applyAgentStatus(
+    agent: RyuAgent,
+    status: AgentStatusUpdate['status'],
+    detail?: string
+  ): {
+    ok: boolean
+    ignored?: boolean
+    reason?: string
+    agents: Record<RyuAgent, AgentStatusUpdate['status']>
+    revision: number
+    agentMeta: Record<RyuAgent, AgentStatusMeta>
+  }
+  healthSnapshot(): BridgeHealth
   resolveDecision(decision: RyuDecision): { ok: boolean; reason?: string }
   dismiss(id: string): { ok: boolean; reason?: string }
 }

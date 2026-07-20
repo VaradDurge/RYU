@@ -8,14 +8,21 @@ import { randomBytes } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import {
+  applyStatusUpdate,
+  boundDetail,
+  initialStatusState,
+  LIVE_STATUSES
+} from './status-reducer.mjs'
 
 export const DEFAULT_PORT = 41999
 export const DECISION_TIMEOUT_MS = 5 * 60 * 1000
 export const AGENT_STATUS_WATCHDOG_MS = 45_000
 export const MAX_BODY_BYTES = 64 * 1024
+export const MAX_EVENT_DETAIL_BYTES = 2048
 export const PAIR_WINDOW_MS = 30_000
 export const AGENTS = ['claude', 'codex', 'cursor']
-export const STATUSES = ['idle', 'running', 'approval', 'error']
+export const STATUSES = [...LIVE_STATUSES]
 export const HOOK_KINDS = ['PreToolUse', 'PermissionRequest']
 
 function watchdogMs() {
@@ -44,21 +51,28 @@ export function validateEvent(raw) {
   if (raw.risk != null && raw.risk !== 'normal' && raw.risk !== 'destructive') {
     return { ok: false, error: 'invalid risk' }
   }
-  return {
-    ok: true,
-    event: {
-      id: raw.id.trim(),
-      agent: raw.agent,
-      sessionLabel: raw.sessionLabel,
-      tool: raw.tool,
-      preview: raw.preview,
-      path: typeof raw.path === 'string' ? raw.path : undefined,
-      risk: raw.risk === 'destructive' ? 'destructive' : 'normal',
-      ts: raw.ts,
-      pairKey: typeof raw.pairKey === 'string' && raw.pairKey ? raw.pairKey : undefined,
-      hookKind: HOOK_KINDS.includes(raw.hookKind) ? raw.hookKind : undefined
-    }
+  const event = {
+    id: raw.id.trim(),
+    agent: raw.agent,
+    sessionLabel: raw.sessionLabel,
+    tool: raw.tool,
+    preview: raw.preview,
+    path: typeof raw.path === 'string' ? raw.path : undefined,
+    risk: raw.risk === 'destructive' ? 'destructive' : 'normal',
+    ts: raw.ts,
+    pairKey: typeof raw.pairKey === 'string' && raw.pairKey ? raw.pairKey : undefined,
+    hookKind: HOOK_KINDS.includes(raw.hookKind) ? raw.hookKind : undefined
   }
+  if (raw.detail != null) {
+    const bound = boundDetail(raw.detail, MAX_EVENT_DETAIL_BYTES)
+    if (bound.text != null) {
+      event.detail = bound.text
+      event.detailTruncated = bound.truncated || Boolean(raw.detailTruncated)
+    }
+  } else if (raw.detailTruncated) {
+    event.detailTruncated = true
+  }
+  return { ok: true, event }
 }
 
 export function validateDecision(raw) {
@@ -109,15 +123,61 @@ export class RyuBridgeCore {
     this.onAgentStatus = options.onAgentStatus || null
     this.pending = new Map()
     this.pairIndex = new Map() // pairKey -> visibleId
-    this.agentStatus = { cursor: 'idle', claude: 'idle', codex: 'idle' }
+    this.statusState = initialStatusState()
     this.statusWatchdogs = new Map()
     this.revision = 0
+    this.startedAt = null
+    this.startError = null
     this.server = null
+  }
+
+  /** Flat status map (backward-compatible with Track A/B / Phase 1). */
+  get agentStatus() {
+    return { ...this.statusState.statuses }
   }
 
   bump() {
     this.revision += 1
     return this.revision
+  }
+
+  pendingAgentsSet() {
+    const set = new Set()
+    for (const { event } of this.pending.values()) set.add(event.agent)
+    return set
+  }
+
+  agentMetaMap() {
+    const meta = {}
+    for (const agent of AGENTS) {
+      meta[agent] = {
+        revision: this.statusState.revisions[agent] || 0,
+        lastSeenAt: this.statusState.receivedAt[agent] || 0,
+        detail: this.statusState.details[agent],
+        source: 'bridge',
+        integration: this.statusState.integration[agent] || 'unknown'
+      }
+    }
+    return meta
+  }
+
+  healthSnapshot() {
+    if (!this.server) {
+      return {
+        bridge: 'unavailable',
+        port: this.port,
+        reason: this.startError || 'not_started',
+        startedAt: this.startedAt,
+        auth: this.requireAuth
+      }
+    }
+    return {
+      bridge: 'started',
+      port: this.port,
+      reason: null,
+      startedAt: this.startedAt,
+      auth: this.requireAuth
+    }
   }
 
   getSnapshot() {
@@ -126,7 +186,58 @@ export class RyuBridgeCore {
       revision: this.revision,
       events,
       ids: events.map((e) => e.id),
-      agents: { ...this.agentStatus }
+      agents: this.agentStatus,
+      agentMeta: this.agentMetaMap(),
+      health: this.healthSnapshot()
+    }
+  }
+
+  /**
+   * Apply a status update with bridge-assigned revision.
+   * Late idle cannot clear approval/stale while a pending permission exists for that agent.
+   */
+  applyAgentStatus(agent, status, detail) {
+    if (!AGENTS.includes(agent) || !STATUSES.includes(status)) {
+      return { ok: false, reason: 'invalid' }
+    }
+    const revision = this.bump()
+    const receivedAt = Date.now()
+    const pendingAgents = this.pendingAgentsSet()
+    const next = applyStatusUpdate(
+      this.statusState,
+      { agent, status, revision, receivedAt, detail },
+      { pendingAgents }
+    )
+    if (next === this.statusState) {
+      // Ignored (e.g. late idle over pending approval) — still bump consumed; report current.
+      return {
+        ok: true,
+        ignored: true,
+        agents: this.agentStatus,
+        revision: this.revision,
+        agentMeta: this.agentMetaMap()
+      }
+    }
+    this.statusState = next
+    if (status === 'running' || status === 'approval') {
+      this.armStatusWatchdog(agent)
+    } else {
+      this.clearStatusWatchdog(agent)
+    }
+    const update = {
+      agent,
+      status: this.statusState.statuses[agent],
+      detail: detail || undefined,
+      revision: this.statusState.revisions[agent],
+      receivedAt: this.statusState.receivedAt[agent]
+    }
+    this.onAgentStatus?.(update)
+    return {
+      ok: true,
+      ignored: false,
+      agents: this.agentStatus,
+      revision: this.revision,
+      agentMeta: this.agentMetaMap()
     }
   }
 
@@ -143,13 +254,30 @@ export class RyuBridgeCore {
   }
 
   async start() {
+    this.startError = null
     this.server = createServer((req, res) => {
       void this.handle(req, res)
     })
-    await new Promise((resolve, reject) => {
-      this.server.once('error', reject)
-      this.server.listen(this.port, '127.0.0.1', () => resolve())
-    })
+    try {
+      await new Promise((resolve, reject) => {
+        this.server.once('error', reject)
+        this.server.listen(this.port, '127.0.0.1', () => resolve())
+      })
+    } catch (err) {
+      this.startError = err?.code || err?.message || 'start_failed'
+      this.server = null
+      throw err
+    }
+    this.startedAt = Date.now()
+    this.statusState = {
+      ...this.statusState,
+      health: {
+        bridge: 'started',
+        port: this.port,
+        reason: null,
+        startedAt: this.startedAt
+      }
+    }
     this.writeConfigFiles()
     return this.port
   }
@@ -168,6 +296,15 @@ export class RyuBridgeCore {
     if (this.server) {
       this.server.close()
       this.server = null
+    }
+    this.statusState = {
+      ...this.statusState,
+      health: {
+        bridge: 'unavailable',
+        port: this.port,
+        reason: 'stopped',
+        startedAt: this.startedAt
+      }
     }
   }
 
@@ -271,10 +408,10 @@ export class RyuBridgeCore {
       agent,
       setTimeout(() => {
         this.statusWatchdogs.delete(agent)
-        if (this.agentStatus[agent] !== 'running' && this.agentStatus[agent] !== 'approval') return
-        this.agentStatus[agent] = 'idle'
-        this.bump()
-        this.onAgentStatus?.({ agent, status: 'idle', detail: `${agent} · Idle` })
+        const current = this.statusState.statuses[agent]
+        if (current !== 'running' && current !== 'approval') return
+        // Honest liveness: expire to stale, never false idle (P2.3).
+        this.applyAgentStatus(agent, 'stale', `${agent} · Status stale`)
       }, ms)
     )
   }
@@ -319,11 +456,15 @@ export class RyuBridgeCore {
     const path = url.split('?')[0]
 
     if (req.method === 'GET' && path === '/health') {
+      const health = this.healthSnapshot()
       this.json(res, 200, {
-        ok: true,
+        ok: health.bridge === 'started',
         port: this.port,
         headless: this.headless,
-        auth: this.requireAuth
+        auth: this.requireAuth,
+        bridge: health.bridge,
+        reason: health.reason,
+        startedAt: health.startedAt
       })
       return
     }
@@ -341,7 +482,12 @@ export class RyuBridgeCore {
     }
 
     if (req.method === 'GET' && path === '/agents') {
-      this.json(res, 200, { agents: this.agentStatus, revision: this.revision })
+      this.json(res, 200, {
+        agents: this.agentStatus,
+        revision: this.revision,
+        agentMeta: this.agentMetaMap(),
+        health: this.healthSnapshot()
+      })
       return
     }
 
@@ -474,15 +620,9 @@ export class RyuBridgeCore {
         this.json(res, 400, { error: 'invalid agent or status' })
         return
       }
-      this.agentStatus[update.agent] = update.status
-      if (update.status === 'running' || update.status === 'approval') {
-        this.armStatusWatchdog(update.agent)
-      } else {
-        this.clearStatusWatchdog(update.agent)
-      }
-      this.bump()
-      this.onAgentStatus?.(update)
-      this.json(res, 200, { ok: true, agents: this.agentStatus, revision: this.revision })
+      const detail = typeof update.detail === 'string' ? update.detail : undefined
+      const result = this.applyAgentStatus(update.agent, update.status, detail)
+      this.json(res, 200, result)
       return
     }
 

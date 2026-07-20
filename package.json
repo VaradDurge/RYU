@@ -18,6 +18,7 @@
     "verify:track-a": "node scripts/verify-track-a.mjs",
     "verify:track-b": "node scripts/verify-track-b.mjs",
     "verify:phase1-remediation": "node scripts/verify-phase1-remediation.mjs",
+    "verify:phase2-surface": "node scripts/verify-phase2-surface.mjs",
     "bridge:headless": "node scripts/headless-bridge.mjs",
     "acp:cursor": "node scripts/ryu-cursor-acp.mjs",
     "capture:demo": "node scripts/capture-demo.mjs",

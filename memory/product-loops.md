@@ -11,8 +11,8 @@ Source of truth (long): `docs/product-and-feature-loops.md`
 | ID | Loop | Phase | Status |
 | --- | --- | --- | --- |
 | F1 | Permission decide (Allow/Deny) | 0–1 | Track A S1–S4/S7 green (headless); live WSL sign-off pending |
-| F2 | Attention / presence (rings) | 0–1 | Track A S5–S6 green; Cursor live OK; Claude wired + verify OK |
-| F3 | Collapse / return-to-calm | 0–1 | Dismiss + watchdog (Track B S10/S12); live UX still home |
+| F2 | Attention / presence (rings) | 0–2 | Rings + stale/health (P2.3–P2.5); compact Attention first (P2.1); live glanceability home |
+| F3 | Collapse / return-to-calm | 0–2 | Dismiss + watchdog→**stale** (P2.3/S12); deliberate Attention (P2.1); live UX still home |
 | F4 | Questions / AskUserQuestion | 3 | Logged — not started |
 | F5 | Multi-item queue | 2 | Bridge + island FIFO (Track B S9); badge = “N waiting” |
 | F6 | Jump-to-session | 4 | Logged — not started |

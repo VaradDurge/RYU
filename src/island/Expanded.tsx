@@ -1,4 +1,4 @@
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
+import { useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import type { RyuEvent } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
 import { theme } from '../theme'
@@ -27,10 +27,13 @@ export function Expanded({
   onDeny: () => void
   onDismiss?: () => void
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const name = agentNames[event.agent]
-  const command = stripToolPrefix(event.preview)
-  const path = event.path || '~/Projects/ryu'
+  const command = displayPreview(event.preview)
+  const path = event.path || undefined
   const queuedBehind = Math.max(0, waitingCount - 1)
+  const extraDetail = buildExtraDetail(event)
+  const showDetails = Boolean(extraDetail)
 
   const handle = (fn: () => void) => (e: ReactMouseEvent) => {
     e.preventDefault()
@@ -87,14 +90,41 @@ export function Expanded({
           display: 'flex',
           alignItems: 'center',
           gap: 12,
-          marginBottom: 14
+          marginBottom: 8
         }}
       >
         <AgentIcon agent={event.agent} size={36} />
-        <span style={{ color: theme.text, fontSize: 14 }}>
-          <strong style={{ fontWeight: 650 }}>{name}</strong>
-          <span style={{ color: theme.textMuted }}> wants to run a command.</span>
-        </span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: theme.text, fontSize: 14 }}>
+            <strong style={{ fontWeight: 650 }}>{name}</strong>
+            <span style={{ color: theme.textMuted }}> wants to run a command.</span>
+          </div>
+          <div
+            style={{
+              color: theme.textDim,
+              fontSize: 12,
+              marginTop: 2,
+              fontFamily: theme.mono,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+            title={event.sessionLabel}
+          >
+            {event.sessionLabel}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          color: theme.textMuted,
+          fontSize: 12,
+          marginBottom: 10,
+          paddingLeft: 2
+        }}
+      >
+        Tool <span style={{ color: theme.text, fontFamily: theme.mono }}>{event.tool}</span>
       </div>
 
       <div
@@ -118,27 +148,66 @@ export function Expanded({
         >
           {command}
         </code>
+        {event.detailTruncated ? (
+          <div style={{ color: theme.textDim, fontSize: 11, marginTop: 8 }}>truncated</div>
+        ) : null}
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          color: theme.textDim,
-          fontSize: 12,
-          marginBottom: 10,
-          paddingLeft: 2
-        }}
-      >
-        <FolderGlyph />
-        <span style={{ fontFamily: theme.mono }}>{path}</span>
-      </div>
+      {path ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            color: theme.textDim,
+            fontSize: 12,
+            marginBottom: 10,
+            paddingLeft: 2
+          }}
+        >
+          <FolderGlyph />
+          <span style={{ fontFamily: theme.mono, wordBreak: 'break-all' }}>{path}</span>
+        </div>
+      ) : null}
 
-      <button type="button" style={detailsRow} tabIndex={-1}>
-        <ChevronGlyph />
-        Details
-      </button>
+      {showDetails ? (
+        <>
+          <button
+            type="button"
+            style={{ ...detailsRow, cursor: 'pointer' }}
+            aria-expanded={detailsOpen}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setDetailsOpen((v) => !v)
+            }}
+          >
+            <ChevronGlyph open={detailsOpen} />
+            Details
+          </button>
+          {detailsOpen ? (
+            <pre
+              style={{
+                margin: '0 0 12px',
+                padding: '10px 12px',
+                background: theme.inset,
+                border: `1px solid ${theme.insetBorder}`,
+                borderRadius: 12,
+                color: theme.textDim,
+                fontFamily: theme.mono,
+                fontSize: 11.5,
+                lineHeight: 1.45,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                maxHeight: 160,
+                overflow: 'auto'
+              }}
+            >
+              {extraDetail}
+            </pre>
+          ) : null}
+        </>
+      ) : null}
 
       {actionError ? (
         <div
@@ -200,14 +269,22 @@ export function Expanded({
   )
 }
 
-function stripToolPrefix(preview: string): string {
-  const m = preview.match(/^Bash:\s*(.+)$/i)
-  if (m) {
-    const cmd = m[1]
-    if (cmd.includes('"') || cmd.startsWith('bash')) return cmd
-    return `bash -lc "${cmd.replace(/"/g, '\\"')}"`
+/** Preserve canonical preview text; only strip a leading tool label. */
+export function displayPreview(preview: string): string {
+  return preview.replace(/^Bash:\s*/i, '')
+}
+
+/** Extra truthful fields for Details disclosure (bounded). Absent → no Details control. */
+export function buildExtraDetail(event: RyuEvent): string | null {
+  const lines: string[] = []
+  if (event.detail?.trim()) {
+    lines.push(event.detail.trim())
+    if (event.detailTruncated) lines.push('(truncated)')
   }
-  return preview
+  if (event.risk === 'destructive') lines.push('risk: destructive (informational)')
+  if (event.hookKind) lines.push(`hook: ${event.hookKind}`)
+  if (!lines.length) return null
+  return lines.join('\n')
 }
 
 function WarningGlyph() {
@@ -251,9 +328,16 @@ function LockGlyph() {
   )
 }
 
-function ChevronGlyph() {
+function ChevronGlyph({ open }: { open: boolean }) {
   return (
-    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden
+      style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s ease' }}
+    >
       <path d="M6 3.5 11 8 6 12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   )
