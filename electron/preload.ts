@@ -1,12 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AgentStatusUpdate, RyuAgent, RyuDecision, RyuEvent } from '../shared/types'
+import type {
+  AgentActivityEvent,
+  AgentStatusUpdate,
+  RyuAgent,
+  RyuDecision,
+  RyuEvent
+} from '../shared/types'
 
 type NoticePayload = {
   id: string
   agent: RyuAgent
-  kind: 'running' | 'permission' | 'failed' | 'finished'
+  kind: 'idle' | 'running' | 'permission' | 'failed'
   ts: number
 }
+
+type SendPromptResult = { ok: boolean; error?: string }
 
 contextBridge.exposeInMainWorld('ryu', {
   setInteractive: (interactive: boolean) => {
@@ -36,29 +44,43 @@ contextBridge.exposeInMainWorld('ryu', {
     }
   },
   onAgentStatus: (handler: (update: AgentStatusUpdate) => void) => {
-    const listener = (_: Electron.IpcRendererEvent, update: AgentStatusUpdate) => handler(update)
+    const listener = (_: Electron.IpcRendererEvent, update: AgentStatusUpdate) =>
+      handler(update)
     ipcRenderer.on('ryu:agentStatus', listener)
     return () => {
       ipcRenderer.removeListener('ryu:agentStatus', listener)
     }
   },
-  /** Island → main: clear sticky finished/failed dots when island opens */
-  clearNotices: () => {
-    ipcRenderer.send('ryu:clearNotices')
+  /** Live activity push from bridge /status + /activity */
+  onAgentActivity: (handler: (event: AgentActivityEvent) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: AgentActivityEvent) =>
+      handler(event)
+    ipcRenderer.on('ryu:agentActivity', listener)
+    return () => {
+      ipcRenderer.removeListener('ryu:agentActivity', listener)
+    }
   },
-  /** Notice window ← main */
+  /** Snapshot: transcript + live ring buffer for hover panel */
+  getAgentActivity: (payload: {
+    agent: RyuAgent
+    workspace?: string | null
+  }): Promise<AgentActivityEvent[]> => {
+    return ipcRenderer.invoke('ryu:getAgentActivity', payload)
+  },
+  setNotices: (notices: NoticePayload[]) => {
+    ipcRenderer.send('ryu:setNotices', notices)
+  },
   onNotices: (handler: (notices: NoticePayload[]) => void) => {
-    const listener = (_: Electron.IpcRendererEvent, notices: NoticePayload[]) => handler(notices)
+    const listener = (_: Electron.IpcRendererEvent, notices: NoticePayload[]) =>
+      handler(notices)
     ipcRenderer.on('ryu:notices', listener)
     return () => {
       ipcRenderer.removeListener('ryu:notices', listener)
     }
   },
-  /** Notice window mounted — request buffered notices */
   noticesReady: () => {
     ipcRenderer.send('ryu:noticesReady')
   },
-  /** Notice window → main → island */
   noticeClicked: (payload: { id: string; agent: RyuAgent }) => {
     ipcRenderer.send('ryu:noticeClicked', payload)
   },
@@ -72,10 +94,16 @@ contextBridge.exposeInMainWorld('ryu', {
       ipcRenderer.removeListener('ryu:noticeClicked', listener)
     }
   },
-  isDev: () => process.env.NODE_ENV === 'development' || Boolean(process.env.ELECTRON_RENDERER_URL),
+  isDev: () =>
+    process.env.NODE_ENV === 'development' || Boolean(process.env.ELECTRON_RENDERER_URL),
   platform: process.platform as 'darwin' | 'win32' | 'linux',
-  /** true when this renderer is the tiny notch-right notice window */
   isNoticeSurface: () => new URLSearchParams(location.search).get('surface') === 'notices',
-  /** true when this renderer is the top-left notice inject panel */
-  isDemoSurface: () => new URLSearchParams(location.search).get('surface') === 'demo'
+  isDemoSurface: () => new URLSearchParams(location.search).get('surface') === 'demo',
+  sendPrompt: (payload: {
+    agent: RyuAgent
+    text: string
+    cwd?: string
+  }): Promise<SendPromptResult> => {
+    return ipcRenderer.invoke('ryu:sendPrompt', payload)
+  }
 })

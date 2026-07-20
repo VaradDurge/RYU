@@ -1,17 +1,54 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 
-/** Tucked lip / hit sensor under the notch */
-export const TUCKED_W = 140
-export const TUCKED_H = 36
+/** Tucked lip / hit sensor under the notch — wide enough to match the cutout */
+export const TUCKED_W = 240
+export const TUCKED_H = 40
 /** Dock + hover tip room (tips grow with summary text) */
 export const DOCK_W = 420
 export const DOCK_H = 200
-/** Dock + permission card / wide tip */
-export const EXPANDED_W = 440
-export const EXPANDED_H = 360
-/** Clear the hardware notch cutout */
+/** Dock + activity panel + prompt composer */
+export const EXPANDED_W = 460
+export const EXPANDED_H = 580
+/**
+ * Content clears the hardware notch cutout.
+ * Hover hit-testing for the notch itself uses `notchHitRect()` (y = 0).
+ */
 const NOTCH_CLEAR_Y = 34
+
+/**
+ * Full hardware-notch hover target (screen coords).
+ * Wider/taller than the black cutout so entering from any side counts.
+ */
+export const NOTCH_HIT_W = 280
+export const NOTCH_HIT_H = 44
+
+export function notchHitRect(display = screen.getPrimaryDisplay()): {
+  x: number
+  y: number
+  width: number
+  height: number
+} {
+  const { x, y, width } = display.bounds
+  return {
+    x: Math.round(x + (width - NOTCH_HIT_W) / 2),
+    y: Math.round(y),
+    width: NOTCH_HIT_W,
+    height: NOTCH_HIT_H
+  }
+}
+
+export function pointInRect(
+  pt: { x: number; y: number },
+  r: { x: number; y: number; width: number; height: number }
+): boolean {
+  return (
+    pt.x >= r.x &&
+    pt.x < r.x + r.width &&
+    pt.y >= r.y &&
+    pt.y < r.y + r.height
+  )
+}
 
 /**
  * Compact Mac island shell — a small panel under the notch.

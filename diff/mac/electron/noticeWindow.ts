@@ -11,7 +11,7 @@ const NOTICE_WIN_H = 42
 export type NoticePayload = {
   id: string
   agent: 'cursor' | 'claude' | 'codex'
-  kind: 'running' | 'permission' | 'failed' | 'finished'
+  kind: 'idle' | 'running' | 'permission' | 'failed'
   ts: number
 }
 
@@ -96,19 +96,14 @@ export function showNotices(win: BrowserWindow, notices: NoticePayload[]): void 
     win.webContents.send('ryu:notices', notices)
   }
 
-  if (notices.length === 0) {
-    win.setIgnoreMouseEvents(true, { forward: true })
-    win.hide()
-    return
-  }
-
+  // Keep the strip visible; renderer draws zero dots when nothing is available.
   win.setIgnoreMouseEvents(false)
   if (!win.isVisible()) win.showInactive()
   forceBounds(win)
   raiseNoticeWindow(win)
   console.log(
     '[ryu] notices',
-    notices.map((n) => `${n.agent}:${n.kind}`).join(', '),
+    notices.map((n) => `${n.agent}:${n.kind}`).join(', ') || '(none)',
     win.getBounds()
   )
 }

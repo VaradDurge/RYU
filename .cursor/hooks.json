@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "command": "node .cursor/hooks/ryu-cursor-status.mjs" }
+    ],
+    "beforeSubmitPrompt": [
+      { "command": "node .cursor/hooks/ryu-cursor-status.mjs" }
+    ],
+    "preToolUse": [
+      { "command": "node .cursor/hooks/ryu-cursor-status.mjs" }
+    ],
+    "beforeShellExecution": [
+      { "command": "node .cursor/hooks/ryu-cursor-status.mjs" }
+    ],
+    "afterFileEdit": [
+      { "command": "node .cursor/hooks/ryu-cursor-status.mjs" }
+    ],
+    "subagentStart": [
+      { "command": "node .cursor/hooks/ryu-cursor-status.mjs" }
+    ],
+    "stop": [
+      { "command": "node .cursor/hooks/ryu-cursor-status.mjs" }
+    ],
+    "sessionEnd": [
+      { "command": "node .cursor/hooks/ryu-cursor-status.mjs" }
+    ]
+  }
+}

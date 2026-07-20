@@ -60,8 +60,9 @@ export const macTheme = {
 
   /** Must clear the hardware notch (~37 CSS px on 14"/16" MacBook Pro) */
   notchBand: 38,
-  notchHitWidth: 200,
-  notchHitHeight: 18,
+  /** Generous hit target — full cutout + a little margin on each side */
+  notchHitWidth: 280,
+  notchHitHeight: 44,
 
   /**
    * Hardware notch width in CSS px (must CLEAR the black cutout).

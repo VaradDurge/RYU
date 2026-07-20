@@ -3,7 +3,7 @@ import { useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import type { RyuAgent } from '../../../shared/types'
 import type { AgentStatusMap, DockStatus } from '../types'
-import { AGENT_LABELS, DOCK_AGENTS } from '../types'
+import { AGENT_LABELS } from '../types'
 import type { AgentSummaryMap } from './useAgentStatuses'
 import { AgentIcon } from './AgentIcon'
 import { StatusRing } from './GlowRing'
@@ -51,24 +51,24 @@ const slotBtn: CSSProperties = {
   position: 'relative'
 }
 
-const statusHue: Record<DockStatus, string> = {
-  idle: macTheme.idle,
-  running: macTheme.success,
-  approval: macTheme.waiting,
-  error: macTheme.danger
-}
-
 export function AgentDock({
+  agents,
   statuses,
   summaries,
   selectedAgent,
   onSelectAgent,
+  onHoverAgent,
+  hideTip = false,
   animateIn = true
 }: {
+  /** Only agents with an open session / live activity */
+  agents: RyuAgent[]
   statuses: AgentStatusMap
   summaries: AgentSummaryMap
   selectedAgent: RyuAgent | null
   onSelectAgent: (agent: RyuAgent) => void
+  onHoverAgent?: (agent: RyuAgent | null) => void
+  hideTip?: boolean
   animateIn?: boolean
 }) {
   const [hovered, setHovered] = useState<RyuAgent | null>(null)
@@ -79,22 +79,17 @@ export function AgentDock({
     const el = btnRefs.current[agent]
     if (!el) return
     const r = el.getBoundingClientRect()
-    // Keep tip centered on the icon but clamped inside the island window
-    const half = 190
+    const half = 140
     const x = Math.min(
       Math.max(r.left + r.width / 2, half + 8),
       window.innerWidth - half - 8
     )
-    setTipPos({ x, y: r.bottom + 8 })
+    setTipPos({ x, y: r.bottom + 6 })
   }
 
   const summary = hovered ? stripAgentPrefix(summaries[hovered], hovered) : ''
-  const statusText = hovered ? statusLabel(statuses[hovered]) : ''
-  // Avoid "Idle" / "Idle" double line when summary matches status
-  const showBody =
-    Boolean(hovered) &&
-    summary.length > 0 &&
-    summary.toLowerCase() !== statusText.toLowerCase()
+
+  if (agents.length === 0) return null
 
   return (
     <div
@@ -113,8 +108,13 @@ export function AgentDock({
         variants={animateIn ? dockPill : undefined}
         initial={animateIn ? 'hidden' : false}
         animate="show"
+        onMouseLeave={() => {
+          setHovered(null)
+          setTipPos(null)
+          onHoverAgent?.(null)
+        }}
       >
-        {DOCK_AGENTS.map((agent, i) => {
+        {agents.map((agent, i) => {
           const status = statuses[agent]
           const selected = selectedAgent === agent
           const showTip = hovered === agent
@@ -138,18 +138,17 @@ export function AgentDock({
               onMouseEnter={() => {
                 setHovered(agent)
                 placeTip(agent)
+                onHoverAgent?.(agent)
               }}
-              onMouseLeave={() => {
-                setHovered((h) => (h === agent ? null : h))
-                setTipPos(null)
-              }}
+              // Do NOT clear on icon leave — sliding to the next icon would
+              // flash-unmount the activity panel. Dock shell clears instead.
               style={{
                 ...slotBtn,
                 opacity: selected || showTip ? 1 : status === 'idle' ? 0.7 : 0.9
               }}
-              whileHover={animateIn ? { scale: 1.08, y: -1 } : undefined}
-              whileTap={animateIn ? { scale: 0.94 } : undefined}
-              transition={{ type: 'spring', stiffness: 500, damping: 28 }}
+              whileHover={animateIn ? { scale: 1.12, y: -2 } : undefined}
+              whileTap={animateIn ? { scale: 0.92 } : undefined}
+              transition={{ type: 'spring', stiffness: 520, damping: 26 }}
             >
               <div style={{ position: 'relative', width: ICON_VIS, height: ICON_VIS }}>
                 <StatusRing status={status} size={ICON_VIS} />
@@ -161,37 +160,24 @@ export function AgentDock({
       </motion.div>
 
       {typeof document !== 'undefined' &&
+        !hideTip &&
         createPortal(
           <AnimatePresence>
-            {hovered && tipPos && (
+            {hovered && tipPos && summary && (
               <motion.div
                 key={`tip-${hovered}`}
                 role="tooltip"
-                initial={{ opacity: 0, y: 6, scale: 0.94, x: '-50%' }}
-                animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
-                exit={{ opacity: 0, y: 3, scale: 0.97, x: '-50%' }}
-                transition={{ type: 'spring', stiffness: 520, damping: 36 }}
+                initial={{ opacity: 0, y: 4, x: '-50%' }}
+                animate={{ opacity: 1, y: 0, x: '-50%' }}
+                exit={{ opacity: 0, y: 2, x: '-50%' }}
+                transition={{ duration: 0.14, ease: 'easeOut' }}
                 style={{
                   ...tipShell,
                   left: tipPos.x,
                   top: tipPos.y
                 }}
               >
-                <div aria-hidden style={tipCaret} />
-                <div style={tipInner}>
-                  <div style={tipHeader}>
-                    <span
-                      aria-hidden
-                      style={{
-                        ...tipDot,
-                        background: statusHue[statuses[hovered]]
-                      }}
-                    />
-                    <span style={tipName}>{AGENT_LABELS[hovered]}</span>
-                    <span style={tipStatus}>{statusText}</span>
-                  </div>
-                  {showBody && <div style={tipBody}>{summary}</div>}
-                </div>
+                {summary}
               </motion.div>
             )}
           </AnimatePresence>,
@@ -223,81 +209,22 @@ function stripAgentPrefix(summary: string, agent: RyuAgent): string {
 const tipShell: CSSProperties = {
   position: 'fixed',
   width: 'max-content',
-  minWidth: 148,
-  maxWidth: 380,
+  maxWidth: 280,
   pointerEvents: 'none',
   zIndex: 2147483000,
-  overflow: 'visible'
-}
-
-const tipCaret: CSSProperties = {
-  position: 'absolute',
-  top: -4,
-  left: '50%',
-  marginLeft: -4,
-  width: 8,
-  height: 8,
-  background: macTheme.tipBg,
-  borderLeft: `0.5px solid ${macTheme.tipBorder}`,
-  borderTop: `0.5px solid ${macTheme.tipBorder}`,
-  transform: 'rotate(45deg)'
-}
-
-const tipInner: CSSProperties = {
-  position: 'relative',
-  padding: '9px 12px 10px',
-  borderRadius: 12,
-  background: `linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 40%), ${macTheme.tipBg}`,
-  border: `0.5px solid ${macTheme.tipBorder}`,
-  boxShadow: macTheme.tipShadow,
-  backdropFilter: macTheme.tipBlur,
-  WebkitBackdropFilter: macTheme.tipBlur,
-  textAlign: 'left',
-  fontFamily: macTheme.font,
-  overflow: 'visible'
-}
-
-const tipHeader: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  marginBottom: 0
-}
-
-const tipDot: CSSProperties = {
-  width: 5,
-  height: 5,
-  borderRadius: 999,
-  flexShrink: 0
-}
-
-const tipName: CSSProperties = {
-  color: macTheme.text,
-  fontSize: 12,
-  fontWeight: 590,
-  letterSpacing: '-0.01em',
-  lineHeight: 1.2
-}
-
-const tipStatus: CSSProperties = {
-  marginLeft: 'auto',
-  color: macTheme.textDim,
+  padding: '4px 9px',
+  borderRadius: 8,
+  background: 'rgba(0, 0, 0, 0.72)',
+  border: '0.5px solid rgba(255, 255, 255, 0.08)',
+  color: 'rgba(235, 235, 245, 0.62)',
   fontSize: 11,
-  fontWeight: 500,
-  letterSpacing: '-0.01em',
-  lineHeight: 1.2
-}
-
-const tipBody: CSSProperties = {
-  color: macTheme.textMuted,
-  fontSize: 12,
-  lineHeight: 1.35,
   fontWeight: 400,
   letterSpacing: '-0.01em',
-  paddingLeft: 11,
-  marginTop: 4,
+  lineHeight: 1.3,
+  fontFamily: macTheme.font,
   whiteSpace: 'nowrap',
-  maxWidth: 356,
   overflow: 'hidden',
-  textOverflow: 'ellipsis'
+  textOverflow: 'ellipsis',
+  backdropFilter: 'blur(10px) saturate(110%)',
+  WebkitBackdropFilter: 'blur(10px) saturate(110%)'
 }

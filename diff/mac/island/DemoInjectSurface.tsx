@@ -4,7 +4,7 @@ import { macTheme } from './theme'
 const BRIDGE = 'http://127.0.0.1:41999'
 
 /**
- * Top-left Mac test panel — posts /status so notch dots update from main.
+ * Top-left test panel — posts /status with session presence for badge tests.
  */
 export function DemoInjectSurface() {
   const [busy, setBusy] = useState<string | null>(null)
@@ -22,15 +22,29 @@ export function DemoInjectSurface() {
 
   return (
     <div style={root}>
-      <div style={label}>RYU · notice tests</div>
+      <div style={label}>RYU · badge + session</div>
+      <button
+        type="button"
+        style={btn}
+        disabled={busy !== null}
+        onClick={() =>
+          run('session', async () => {
+            await postStatus('cursor', 'idle', 'Session open', 'open')
+            await postStatus('claude', 'idle', 'Session open', 'open')
+          })
+        }
+      >
+        <span style={{ ...swatch, background: macTheme.idle }} />
+        Open session (blue idle)
+      </button>
       <button
         type="button"
         style={btn}
         disabled={busy !== null}
         onClick={() =>
           run('running', async () => {
-            await postStatus('cursor', 'running', 'Editing · demo')
-            await postStatus('claude', 'running', 'Working…')
+            await postStatus('cursor', 'running', 'Editing · demo', 'open')
+            await postStatus('claude', 'running', 'Working…', 'open')
           })
         }
       >
@@ -43,12 +57,17 @@ export function DemoInjectSurface() {
         disabled={busy !== null}
         onClick={() =>
           run('permission', async () => {
-            await postStatus('claude', 'approval', 'Bash: git push origin main')
+            await postStatus(
+              'claude',
+              'approval',
+              'Bash: git push origin main',
+              'open'
+            )
           })
         }
       >
         <span style={{ ...swatch, background: macTheme.waiting }} />
-        Inject permission badge
+        Inject permission (yellow)
       </button>
       <button
         type="button"
@@ -56,8 +75,8 @@ export function DemoInjectSurface() {
         disabled={busy !== null}
         onClick={() =>
           run('error', async () => {
-            await postStatus('cursor', 'error', 'Cursor · Crashed')
-            await postStatus('codex', 'error', 'Codex · Crashed')
+            await postStatus('cursor', 'error', 'Cursor · Crashed', 'open')
+            await postStatus('codex', 'error', 'Codex · Crashed', 'open')
           })
         }
       >
@@ -66,18 +85,31 @@ export function DemoInjectSurface() {
       </button>
       <button
         type="button"
-        style={{ ...btn, opacity: 0.85 }}
+        style={btn}
         disabled={busy !== null}
         onClick={() =>
-          run('done', async () => {
-            await postStatus('cursor', 'running', 'Finishing…')
-            await sleep(100)
-            await postStatus('cursor', 'idle', 'Done')
+          run('settle', async () => {
+            await postStatus('cursor', 'idle', 'Idle', 'open')
+            await postStatus('claude', 'idle', 'Idle', 'open')
+            await postStatus('codex', 'idle', 'Idle', 'open')
           })
         }
       >
-        <span style={{ ...swatch, background: macTheme.idle }} />
-        Inject completion
+        Settle to idle (keep blue)
+      </button>
+      <button
+        type="button"
+        style={{ ...btn, opacity: 0.85 }}
+        disabled={busy !== null}
+        onClick={() =>
+          run('close', async () => {
+            await postStatus('cursor', 'idle', 'Idle', 'closed')
+            await postStatus('claude', 'idle', 'Idle', 'closed')
+            await postStatus('codex', 'idle', 'Idle', 'closed')
+          })
+        }
+      >
+        Close sessions (clear badges)
       </button>
     </div>
   )
@@ -86,18 +118,15 @@ export function DemoInjectSurface() {
 async function postStatus(
   agent: 'cursor' | 'claude' | 'codex',
   status: 'idle' | 'running' | 'approval' | 'error',
-  detail: string
+  detail: string,
+  session?: 'open' | 'closed'
 ): Promise<void> {
   const res = await fetch(`${BRIDGE}/status`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agent, status, detail })
+    body: JSON.stringify({ agent, status, detail, session })
   })
   if (!res.ok) throw new Error(`status ${res.status}`)
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms))
 }
 
 const root: CSSProperties = {

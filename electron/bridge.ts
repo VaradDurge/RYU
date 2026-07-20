@@ -4,6 +4,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
 import type {
+  AgentActivityEvent,
+  AgentActivityKind,
   AgentStatusUpdate,
   BridgeDecisionResponse,
   RyuAgent,
@@ -13,12 +15,24 @@ import type {
 
 const DEFAULT_PORT = 41999
 const DECISION_TIMEOUT_MS = 5 * 60 * 1000
+const ACTIVITY_MAX = 80
 
 interface Pending {
   event: RyuEvent
   res: ServerResponse
   timer: NodeJS.Timeout
 }
+
+const ACTIVITY_KINDS: AgentActivityKind[] = [
+  'prompt',
+  'message',
+  'tool',
+  'shell',
+  'edit',
+  'status',
+  'error',
+  'permission'
+]
 
 export class RyuBridge {
   private server: Server | null = null
@@ -31,15 +45,17 @@ export class RyuBridge {
     claude: 'idle',
     codex: 'idle'
   }
-  private onStatus?: (update: AgentStatusUpdate) => void
+  /** Live activity ring buffer per agent (hook stream) */
+  private activity: Record<RyuAgent, AgentActivityEvent[]> = {
+    cursor: [],
+    claude: [],
+    codex: []
+  }
+  /** Last workspace path seen on /status or /event */
+  lastWorkspace: string | null = null
 
   attachWindow(win: BrowserWindow): void {
     this.win = win
-  }
-
-  /** Main process hook — drive notch dots from the same /status stream */
-  setStatusListener(listener: (update: AgentStatusUpdate) => void): void {
-    this.onStatus = listener
   }
 
   async start(preferredPort = DEFAULT_PORT): Promise<number> {
@@ -79,6 +95,56 @@ export class RyuBridge {
     return true
   }
 
+  /** Push a status update to the island (used by prompt spawn, etc.) */
+  publishStatus(update: AgentStatusUpdate): void {
+    this.agentStatus[update.agent] = update.status
+    this.win?.webContents.send('ryu:agentStatus', update)
+    // Mirror meaningful work lines into the live activity feed (skip idle / quiet)
+    if (
+      !update.quiet &&
+      update.detail?.trim() &&
+      (update.status === 'running' ||
+        update.status === 'approval' ||
+        update.status === 'error')
+    ) {
+      const kind: AgentActivityKind =
+        update.status === 'error'
+          ? 'error'
+          : update.status === 'approval'
+            ? 'permission'
+            : 'status'
+      this.publishActivity({
+        id: `${update.agent}-status-${Date.now()}`,
+        agent: update.agent,
+        kind,
+        title: update.detail.trim(),
+        ts: Date.now(),
+        path: update.path
+      })
+    }
+  }
+
+  getActivity(agent: RyuAgent): AgentActivityEvent[] {
+    return this.activity[agent] ?? []
+  }
+
+  publishActivity(event: AgentActivityEvent): void {
+    const list = this.activity[event.agent] ?? []
+    const last = list[list.length - 1]
+    // Dedupe identical consecutive titles
+    if (
+      last &&
+      last.title === event.title &&
+      last.kind === event.kind &&
+      (last.detail || '') === (event.detail || '')
+    ) {
+      return
+    }
+    const next = [...list, event].slice(-ACTIVITY_MAX)
+    this.activity[event.agent] = next
+    this.win?.webContents.send('ryu:agentActivity', event)
+  }
+
   private writePortFile(port: number): void {
     const dir = join(homedir(), '.ryu')
     mkdirSync(dir, { recursive: true })
@@ -86,7 +152,6 @@ export class RyuBridge {
   }
 
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    // CORS not needed (localhost hook only); keep responses simple
     if (req.method === 'GET' && req.url === '/health') {
       this.json(res, 200, { ok: true, port: this.port })
       return
@@ -105,6 +170,18 @@ export class RyuBridge {
       return
     }
 
+    if (req.method === 'GET' && req.url?.startsWith('/activity')) {
+      const u = new URL(req.url, 'http://127.0.0.1')
+      const agent = u.searchParams.get('agent') as RyuAgent | null
+      const agents: RyuAgent[] = ['claude', 'codex', 'cursor']
+      if (agent && agents.includes(agent)) {
+        this.json(res, 200, { agent, events: this.getActivity(agent) })
+        return
+      }
+      this.json(res, 200, { activity: this.activity })
+      return
+    }
+
     if (req.method === 'POST' && req.url === '/event') {
       const body = await this.readBody(req)
       let event: RyuEvent
@@ -120,7 +197,6 @@ export class RyuBridge {
         return
       }
 
-      // Long-poll until decision or timeout
       const timer = setTimeout(() => {
         const item = this.pending.get(event.id)
         if (!item) return
@@ -129,16 +205,15 @@ export class RyuBridge {
       }, DECISION_TIMEOUT_MS)
 
       this.pending.set(event.id, { event, res, timer })
+      if (event.path) this.lastWorkspace = event.path
       this.win?.webContents.send('ryu:event', event)
-      // Permission event also lights the yellow notch dot for that agent
-      const approval: AgentStatusUpdate = {
+      this.publishStatus({
         agent: event.agent,
         status: 'approval',
-        detail: event.preview
-      }
-      this.agentStatus[event.agent] = 'approval'
-      this.win?.webContents.send('ryu:agentStatus', approval)
-      this.onStatus?.(approval)
+        detail: event.preview,
+        session: 'open',
+        path: event.path
+      })
       return
     }
 
@@ -156,7 +231,36 @@ export class RyuBridge {
       return
     }
 
-    // Live agent ring status (Cursor hooks → green while working)
+    if (req.method === 'POST' && req.url === '/activity') {
+      const body = await this.readBody(req)
+      let event: AgentActivityEvent
+      try {
+        event = JSON.parse(body) as AgentActivityEvent
+      } catch {
+        this.json(res, 400, { error: 'invalid json' })
+        return
+      }
+      const agents: RyuAgent[] = ['claude', 'codex', 'cursor']
+      if (
+        !agents.includes(event.agent) ||
+        !event.title ||
+        !ACTIVITY_KINDS.includes(event.kind)
+      ) {
+        this.json(res, 400, { error: 'invalid activity' })
+        return
+      }
+      if (typeof event.path === 'string' && event.path.trim()) {
+        this.lastWorkspace = event.path.trim()
+      }
+      this.publishActivity({
+        ...event,
+        id: event.id || `${event.agent}-${Date.now()}`,
+        ts: event.ts || Date.now()
+      })
+      this.json(res, 200, { ok: true })
+      return
+    }
+
     if (req.method === 'POST' && req.url === '/status') {
       const body = await this.readBody(req)
       let update: AgentStatusUpdate
@@ -168,13 +272,22 @@ export class RyuBridge {
       }
       const agents: RyuAgent[] = ['claude', 'codex', 'cursor']
       const statuses = ['idle', 'running', 'approval', 'error'] as const
+      const sessions = ['open', 'closed'] as const
       if (!agents.includes(update.agent) || !statuses.includes(update.status as (typeof statuses)[number])) {
         this.json(res, 400, { error: 'invalid agent or status' })
         return
       }
-      this.agentStatus[update.agent] = update.status
-      this.win?.webContents.send('ryu:agentStatus', update)
-      this.onStatus?.(update)
+      if (
+        update.session != null &&
+        !sessions.includes(update.session as (typeof sessions)[number])
+      ) {
+        this.json(res, 400, { error: 'invalid session' })
+        return
+      }
+      if (typeof update.path === 'string' && update.path.trim()) {
+        this.lastWorkspace = update.path.trim()
+      }
+      this.publishStatus(update)
       this.json(res, 200, { ok: true, agents: this.agentStatus })
       return
     }

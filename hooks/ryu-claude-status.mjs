@@ -49,8 +49,10 @@ function statusFromHook(eventName, payload) {
   // Permission dialog path — yellow (ryu-hook.mjs still handles Approve/Deny)
   if (name === 'permissionrequest') return 'approval'
 
+  // CLI loaded / waiting at the prompt — available, not working yet
+  if (name === 'sessionstart') return 'idle'
+
   if (
-    name === 'sessionstart' ||
     name === 'userpromptsubmit' ||
     name === 'pretooluse' ||
     name === 'posttooluse' ||
@@ -71,9 +73,12 @@ function basename(p) {
 
 /** Short line for the dock hover chip */
 function summarize(eventName, payload, status) {
-  if (status === 'idle') return 'Claude · Idle'
+  const name = String(eventName || '').toLowerCase()
+
   if (status === 'error') return 'Claude · Error'
   if (status === 'approval') return 'Claude · Needs approval'
+  if (name === 'sessionstart') return 'Claude · Ready'
+  if (status === 'idle') return 'Claude · Idle'
 
   const tool = payload.tool_name || payload.toolName || payload.tool
   const file =
@@ -86,7 +91,6 @@ function summarize(eventName, payload, status) {
     payload.command ||
     payload.tool_input?.command ||
     payload.tool_input?.cmd
-  const name = String(eventName || '').toLowerCase()
 
   if (file) return `Editing ${basename(String(file))}`
   if (cmd) {
@@ -95,7 +99,7 @@ function summarize(eventName, payload, status) {
   }
   if (tool) return `Using ${tool}`
 
-  if (name === 'userpromptsubmit' || name === 'sessionstart') return 'Working on your prompt…'
+  if (name === 'userpromptsubmit') return 'Working on your prompt…'
   if (name === 'pretooluse') return 'Running a tool…'
   if (name === 'posttooluse' || name === 'posttoolbatch') return 'Finishing a tool…'
   if (name === 'subagentstart') return 'Sub-agent running…'
@@ -120,19 +124,28 @@ async function main() {
 
   const eventName = payload.hook_event_name || payload.hookEventName || 'unknown'
   const status = statusFromHook(eventName, payload)
+  const name = String(eventName || '').toLowerCase()
 
-  if (!status) {
+  let session
+  if (name === 'sessionstart') session = 'open'
+  else if (name === 'sessionend') session = 'closed'
+  else if (status && status !== 'idle') session = 'open'
+  // idle Stop keeps session open unless SessionEnd; SessionStart already opens above
+
+  if (!status && !session) {
     log(`${eventName} → ignore`)
     process.exit(0)
   }
 
-  const detail = summarize(eventName, payload, status)
+  const detail = status ? summarize(eventName, payload, status) : undefined
   const port = readPort()
   const url = `http://127.0.0.1:${port}/status`
   const body = JSON.stringify({
     agent: 'claude',
-    status,
-    detail
+    status: status || 'idle',
+    detail: detail || (session === 'open' ? 'Claude · Ready' : undefined),
+    session,
+    path: payload.cwd || payload.workspace_root || payload.workspaceRoot
   })
 
   try {

@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { IslandMode, RyuAgent, RyuEvent } from '../../../shared/types'
+import { ActivityPanel } from './ActivityPanel'
 import { AgentDock } from './AgentDock'
 import { Expanded } from './Expanded'
 import { macGlassSurface } from './glass'
@@ -14,19 +15,23 @@ import {
   islandFromNotch,
   islandFromNotchReduced,
   panelFromDock,
+  activityFromDock,
   stemGrow
 } from './motion'
 import { NotchNotices } from './NotchNotices'
+import { PromptComposer } from './PromptComposer'
 import { Resolved } from './Resolved'
 import { macTheme } from './theme'
+import { useAgentActivity } from './useAgentActivity'
 import { useAgentStatuses } from './useAgentStatuses'
+import { visibleAgents } from './noticesFromStatuses'
 
 const LEAVE_GRACE_MS = 320
 /** Fixed shell sizes — never measure mid-animation (that resized the OS window every frame). */
-const TUCKED_SIZE = { width: 140, height: 36 }
-/** Wide enough for hover tips that size to their summary text */
-const DOCK_SIZE = { width: 420, height: 200 }
-const PERMISSION_SIZE = { width: 440, height: 360 }
+const TUCKED_SIZE = { width: 240, height: 40 }
+/** Dock + scrollable activity + prompt */
+const ACTIVITY_SIZE = { width: 440, height: 520 }
+const PERMISSION_SIZE = { width: 440, height: 400 }
 
 export function IslandMac({
   mode,
@@ -50,19 +55,94 @@ export function IslandMac({
   const reduce = useReducedMotion()
   const [peek, setPeek] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<RyuAgent | null>(null)
+  /** Icon under cursor — drives temporary activity + prompt stack */
+  const [hoveredIcon, setHoveredIcon] = useState<RyuAgent | null>(null)
+  /** Sticky while typing / send error so panel doesn’t vanish mid-follow-up */
+  const [composerAgent, setComposerAgent] = useState<RyuAgent | null>(null)
+  const [composerFocused, setComposerFocused] = useState(false)
+  const [errorAgent, setErrorAgent] = useState<RyuAgent | null>(null)
   const leaveTimer = useRef<number | null>(null)
+  const hoverClearTimer = useRef<number | null>(null)
+  const errorTimer = useRef<number | null>(null)
   const insideRef = useRef(false)
   const lastEventId = useRef<string | null>(null)
 
-  const { statuses, summaries } = useAgentStatuses(mode, event, lastDecision)
+  const { statuses, summaries, sessionOpen, lastWorkspace } = useAgentStatuses(
+    mode,
+    event,
+    lastDecision
+  )
+  const dockAgents = visibleAgents(sessionOpen, statuses)
   const showResolved = mode === 'resolved' && Boolean(lastDecision)
-  const showDock = peek || Boolean(selectedAgent) || showResolved
+  const panelAgent = hoveredIcon ?? composerAgent ?? errorAgent
+  const showDock =
+    peek || Boolean(selectedAgent) || showResolved || Boolean(panelAgent)
 
-  const showPermission =
+  const showPermission = Boolean(
     selectedAgent &&
-    event &&
-    event.agent === selectedAgent &&
-    (mode === 'expanded' || mode === 'attention')
+      event &&
+      event.agent === selectedAgent &&
+      (mode === 'expanded' || mode === 'attention')
+  )
+  const showActivity =
+    Boolean(panelAgent) && !showResolved && !showPermission
+
+  const { events: activityEvents, loading: activityLoading } = useAgentActivity(
+    showActivity ? panelAgent : null,
+    lastWorkspace || event?.path,
+    showActivity
+  )
+
+  const onComposerError = (message: string | null) => {
+    if (errorTimer.current) {
+      window.clearTimeout(errorTimer.current)
+      errorTimer.current = null
+    }
+    if (!message) {
+      setErrorAgent(null)
+      return
+    }
+    setErrorAgent(panelAgent)
+    errorTimer.current = window.setTimeout(() => {
+      setErrorAgent(null)
+      errorTimer.current = null
+    }, 5000)
+  }
+
+  const onIconHover = (agent: RyuAgent | null) => {
+    if (hoverClearTimer.current) {
+      window.clearTimeout(hoverClearTimer.current)
+      hoverClearTimer.current = null
+    }
+    if (agent) {
+      setHoveredIcon(agent)
+      setComposerAgent(agent)
+      return
+    }
+    // Leaving the dock icons — delay clear so a brief gap never collapses UI
+    if (composerFocused) return
+    hoverClearTimer.current = window.setTimeout(() => {
+      setHoveredIcon(null)
+      if (!composerFocused) setComposerAgent(null)
+      hoverClearTimer.current = null
+    }, 280)
+  }
+
+  const onPanelZoneEnter = () => {
+    if (hoverClearTimer.current) {
+      window.clearTimeout(hoverClearTimer.current)
+      hoverClearTimer.current = null
+    }
+  }
+
+  const onPanelZoneLeave = () => {
+    if (composerFocused) return
+    if (hoverClearTimer.current) window.clearTimeout(hoverClearTimer.current)
+    hoverClearTimer.current = window.setTimeout(() => {
+      if (!hoveredIcon && !composerFocused) setComposerAgent(null)
+      hoverClearTimer.current = null
+    }, 160)
+  }
 
   useEffect(() => {
     if (event?.id && event.id !== lastEventId.current) {
@@ -87,6 +167,8 @@ export function IslandMac({
 
   const selectAgent = (agent: RyuAgent) => {
     setSelectedAgent(agent)
+    setComposerAgent(agent)
+    setHoveredIcon(agent)
     setPeek(true)
     if (event && event.agent === agent) onExpand()
   }
@@ -97,6 +179,9 @@ export function IslandMac({
       interactiveLeave()
     }
     setSelectedAgent(null)
+    setHoveredIcon(null)
+    setComposerAgent(null)
+    setComposerFocused(false)
     setPeek(false)
     onCollapse()
     interactiveReset()
@@ -131,8 +216,6 @@ export function IslandMac({
     }, LEAVE_GRACE_MS)
   }
 
-  // Native cursor tracking (main process) — Chromium hover on transparent
-  // windows is unreliable. This is the sole hover source on Mac.
   const setHoveringRef = useRef(setHovering)
   setHoveringRef.current = setHovering
 
@@ -146,28 +229,32 @@ export function IslandMac({
   useEffect(() => {
     return () => {
       if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
+      if (hoverClearTimer.current) window.clearTimeout(hoverClearTimer.current)
+      if (errorTimer.current) window.clearTimeout(errorTimer.current)
       interactiveReset()
       window.ryu?.setIslandSize?.(TUCKED_SIZE)
     }
   }, [])
 
-  // Discrete shell sizes only — grow before animate, shrink after tuck.
   useEffect(() => {
     if (!window.ryu?.setIslandSize) return
     if (showPermission) {
       window.ryu.setIslandSize(PERMISSION_SIZE)
       return
     }
-    if (showDock || showResolved) {
-      window.ryu.setIslandSize(DOCK_SIZE)
+    if (showActivity) {
+      window.ryu.setIslandSize(ACTIVITY_SIZE)
       return
     }
-    // Let exit animation finish before shrinking the OS window
+    if (showDock || showResolved) {
+      window.ryu.setIslandSize({ width: 420, height: 200 })
+      return
+    }
     const t = window.setTimeout(() => {
       window.ryu?.setIslandSize?.(TUCKED_SIZE)
     }, 280)
     return () => window.clearTimeout(t)
-  }, [showDock, showPermission, showResolved])
+  }, [showDock, showPermission, showResolved, showActivity])
 
   const stackVariants = reduce ? islandFromNotchReduced : islandFromNotch
 
@@ -188,6 +275,8 @@ export function IslandMac({
       } as CSSProperties}
     >
       <NotchNotices
+        statuses={statuses}
+        sessionOpen={sessionOpen}
         onSelect={(agent) => {
           selectAgent(agent)
           setPeek(true)
@@ -238,13 +327,59 @@ export function IslandMac({
                 </motion.div>
               ) : (
                 <AgentDock
+                  agents={dockAgents}
                   statuses={statuses}
                   summaries={summaries}
-                  selectedAgent={selectedAgent}
+                  selectedAgent={selectedAgent ?? panelAgent}
                   onSelectAgent={selectAgent}
+                  onHoverAgent={onIconHover}
+                  hideTip={Boolean(showActivity)}
                   animateIn={!reduce}
                 />
               )}
+
+              <AnimatePresence mode="sync">
+                {showActivity && panelAgent && (
+                  <motion.div
+                    key="activity-stack"
+                    variants={reduce ? undefined : activityFromDock}
+                    initial={reduce ? false : 'hidden'}
+                    animate="show"
+                    exit="exit"
+                    onMouseEnter={onPanelZoneEnter}
+                    onMouseLeave={onPanelZoneLeave}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      paddingTop: 8,
+                      marginTop: -2,
+                      paddingLeft: 12,
+                      paddingRight: 12,
+                      paddingBottom: 4,
+                      transformOrigin: '50% 0%',
+                      willChange: 'transform, opacity'
+                    }}
+                  >
+                    <ActivityPanel
+                      agent={panelAgent}
+                      status={statuses[panelAgent]}
+                      events={activityEvents}
+                      loading={activityLoading}
+                      footer={
+                        <PromptComposer
+                          agent={panelAgent}
+                          cwd={lastWorkspace || event?.path}
+                          disabled={Boolean(showPermission)}
+                          onFocusChange={setComposerFocused}
+                          onError={onComposerError}
+                          embedded
+                        />
+                      }
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <AnimatePresence mode="popLayout">
                 {showPermission && selectedAgent && event && (

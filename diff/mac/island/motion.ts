@@ -3,32 +3,39 @@ import type { Transition, Variants } from 'framer-motion'
 /** Soft Apple spring — emerges, settles, no bounce chaos */
 export const emergeSpring: Transition = {
   type: 'spring',
-  stiffness: 420,
-  damping: 32,
-  mass: 0.85
+  stiffness: 380,
+  damping: 30,
+  mass: 0.9
 }
 
 export const settleSpring: Transition = {
   type: 'spring',
-  stiffness: 520,
-  damping: 36,
-  mass: 0.7
+  stiffness: 480,
+  damping: 34,
+  mass: 0.72
 }
 
 export const tuckSpring: Transition = {
   type: 'spring',
-  stiffness: 480,
-  damping: 40,
-  mass: 0.75
+  stiffness: 520,
+  damping: 38,
+  mass: 0.78
 }
 
-/** Whole island stack — born from the notch (top center). No filter/blur — those clip overflow. */
+export const softSnap: Transition = {
+  type: 'spring',
+  stiffness: 560,
+  damping: 40,
+  mass: 0.65
+}
+
+/** Whole island stack — born from the notch (top center). */
 export const islandFromNotch: Variants = {
   hidden: {
     opacity: 0,
-    y: -18,
-    scaleX: 0.42,
-    scaleY: 0.28,
+    y: -22,
+    scaleX: 0.38,
+    scaleY: 0.22,
     transformOrigin: '50% 0%'
   },
   show: {
@@ -39,20 +46,20 @@ export const islandFromNotch: Variants = {
     transformOrigin: '50% 0%',
     transition: {
       ...emergeSpring,
-      opacity: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
-      delayChildren: 0.06,
-      staggerChildren: 0.045
+      opacity: { duration: 0.28, ease: [0.16, 1, 0.3, 1] },
+      delayChildren: 0.08,
+      staggerChildren: 0.05
     }
   },
   exit: {
     opacity: 0,
-    y: -14,
-    scaleX: 0.48,
-    scaleY: 0.22,
+    y: -16,
+    scaleX: 0.44,
+    scaleY: 0.18,
     transformOrigin: '50% 0%',
     transition: {
       ...tuckSpring,
-      opacity: { duration: 0.18, ease: [0.4, 0, 1, 1] }
+      opacity: { duration: 0.2, ease: [0.4, 0, 1, 1] }
     }
   }
 }
@@ -65,33 +72,82 @@ export const islandFromNotchReduced: Variants = {
 
 /** Dock pill shell — slight overshoot width feel */
 export const dockPill: Variants = {
-  hidden: { opacity: 0, scale: 0.86, y: -6 },
+  hidden: { opacity: 0, scale: 0.82, y: -10 },
   show: {
     opacity: 1,
     scale: 1,
     y: 0,
     transition: {
       ...settleSpring,
-      delayChildren: 0.05,
-      staggerChildren: 0.055
+      delayChildren: 0.06,
+      staggerChildren: 0.06
     }
   },
   exit: {
     opacity: 0,
-    scale: 0.9,
-    y: -8,
-    transition: { duration: 0.14, ease: [0.4, 0, 1, 1] }
+    scale: 0.88,
+    y: -10,
+    transition: { duration: 0.16, ease: [0.4, 0, 1, 1] }
   }
 }
 
 /** Individual agent icons fan out from the notch / pill center */
 export const dockIcon: Variants = {
-  hidden: { opacity: 0, y: -12, scale: 0.35 },
+  hidden: { opacity: 0, y: -14, scale: 0.28 },
   show: {
     opacity: 1,
     y: 0,
     scale: 1,
     transition: settleSpring
+  }
+}
+
+/** Activity sheet fades under the dock — no scaleY (blur + scale = glitch on Electron) */
+export const activityFromDock: Variants = {
+  hidden: {
+    opacity: 0,
+    y: -10,
+    transformOrigin: '50% 0%'
+  },
+  show: {
+    opacity: 1,
+    y: 0,
+    transformOrigin: '50% 0%',
+    transition: {
+      duration: 0.22,
+      ease: [0.16, 1, 0.3, 1],
+      delay: 0.04
+    }
+  },
+  exit: {
+    opacity: 0,
+    y: -6,
+    transformOrigin: '50% 0%',
+    transition: {
+      duration: 0.14,
+      ease: [0.4, 0, 0.2, 1]
+    }
+  }
+}
+
+/** Feed rows cascade in */
+export const feedRow: Variants = {
+  hidden: { opacity: 0, y: 10, scale: 0.98 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: softSnap
+  }
+}
+
+/** Role badge micro-pop */
+export const badgePop: Variants = {
+  hidden: { opacity: 0, scale: 0.7 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    transition: { type: 'spring', stiffness: 640, damping: 28 }
   }
 }
 
