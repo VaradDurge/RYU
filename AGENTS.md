@@ -31,8 +31,8 @@ Catch-up narrative (human): `UPDATES.md`. Long product plan: `docs/product-and-f
 
 - Cursor IDE hooks → **status rings only**. Do **not** re-enable approve-every-tool (see lessons).
 - Dock Approve/Deny → **Claude Resume** (optional Cursor ACP spike only).
-- Fail-open: bridge down → agent’s normal prompt; never silent auto-allow.
-- v1 = permissions only, single pending item. Questions / queue / batch / mobile = later phases (see `memory/product-loops.md`).
+- Fail-open: bridge down or dismiss → agent’s normal prompt; never silent auto-allow. Dismiss = `cancelled`, not allow.
+- Permissions-first. Queue + dismiss shipped (Track B); questions / batch / mobile = later (see `memory/product-loops.md`).
 - UI source of truth: `docs/parallel-work-split.md` §6 · live code `src/island/*`, `src/theme.ts`. Do not redesign the island before implementing ahead.
 - Mac notch chrome lives under `diff/mac/`; Windows dock is the daily path.
 
