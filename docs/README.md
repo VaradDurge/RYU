@@ -13,6 +13,7 @@ Research + product direction for the agent attention notch / widget idea.
 | **[core-loop-failure-analysis.md](./core-loop-failure-analysis.md)** | **Audit** — expected outcomes, verified scope, failure modes, and remediation order |
 | **[core-loop-remediation-plan.md](./core-loop-remediation-plan.md)** | **Remediation plan** — Phase 1 implemented (remote); Phases 2–3 backlog |
 | **[HOME-PHASE1.md](./HOME-PHASE1.md)** | **Home checks** — Phase 1 laptop validation still required |
+| **[phase2-execution-plan.md](./phase2-execution-plan.md)** | **Phase 2 plan** — truthful status, deliberate attention, and complete context |
 | **[overview.md](./overview.md)** | Market summary, architecture pattern, RYU-specific insights & flags |
 | **[competitor-research.md](./competitor-research.md)** | Competitor profiles — loops, strengths, sentiment, gaps, comparison matrix |
 | **[pain-points-and-mvp.md](./pain-points-and-mvp.md)** | Prioritized developer pains + earlier MVP notes |

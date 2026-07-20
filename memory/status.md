@@ -18,6 +18,7 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 - **Audit:** `docs/core-loop-failure-analysis.md` identifies pending hydration, decision acknowledgment, hook-ID collision, click-through, and local trust boundary as unresolved P0 risks.
 - **Phase 1 remediation (remote):** shared `bridge-core`, snapshot hydration, ack decide/dismiss, pairKey coalescing, token/loopback/body limits, hover-only interaction — `npm run verify:phase1-remediation` PASS
 - Home Phase 1 checks still open: `docs/HOME-PHASE1.md`
+- **Next plan:** `docs/phase2-execution-plan.md` (truthful status, deliberate Attention, complete Understand card) — planned only.
 
 ## Does not / deferred
 
