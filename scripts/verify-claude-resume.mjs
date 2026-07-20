@@ -13,15 +13,11 @@
 import { spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { authHeaders, BASE, sleep } from './ryu-test-util.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const hookPath = resolve(__dirname, '../hooks/ryu-hook.mjs')
-const BASE = 'http://127.0.0.1:41999'
 const cwd = resolve(__dirname, '..')
-
-async function sleep(ms) {
-  await new Promise((r) => setTimeout(r, ms))
-}
 
 function spawnHook(payload) {
   const child = spawn(process.execPath, [hookPath], { stdio: ['pipe', 'pipe', 'pipe'] })
@@ -46,7 +42,7 @@ function spawnHook(payload) {
 async function waitPending(maxAttempts = 40, agent = 'claude') {
   for (let i = 0; i < maxAttempts; i++) {
     await sleep(100)
-    const pending = await fetch(`${BASE}/pending`).then((r) => r.json())
+    const pending = await fetch(`${BASE}/pending`, { headers: authHeaders() }).then((r) => r.json())
     const events = (pending.events || []).filter((e) => !agent || e.agent === agent)
     const ids = events.map((e) => e.id)
     if (ids.length) return { ids, events }
@@ -57,7 +53,7 @@ async function waitPending(maxAttempts = 40, agent = 'claude') {
 async function decide(id, decision, reason) {
   return fetch(`${BASE}/decision`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({ id, decision, reason })
   }).then((r) => r.json())
 }

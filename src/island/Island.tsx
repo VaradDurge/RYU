@@ -4,7 +4,6 @@ import type { IslandMode, RyuAgent, RyuEvent } from '../../shared/types'
 import { theme } from '../theme'
 import {
   interactiveEnter,
-  interactiveForce,
   interactiveLeave
 } from '../lib/interactiveHover'
 import { AgentDock } from './AgentDock'
@@ -23,6 +22,8 @@ export function Island({
   event,
   waitingCount = 0,
   lastDecision,
+  actionPending = false,
+  actionError = null,
   onExpand,
   onAllow,
   onDeny,
@@ -33,6 +34,8 @@ export function Island({
   event: RyuEvent | null
   waitingCount?: number
   lastDecision: 'allow' | 'deny' | null
+  actionPending?: boolean
+  actionError?: string | null
   onExpand: () => void
   onAllow: () => void
   onDeny: () => void
@@ -59,12 +62,10 @@ export function Island({
     !(event && selectedAgent === event.agent && (mode === 'attention' || mode === 'expanded'))
   const showResolvedInDock = mode === 'resolved' && Boolean(lastDecision)
 
+  // P1.4: never force full-window mouse capture for attention/expanded.
+  // Hover enter/leave on dock/card keeps click-through outside the island.
   useEffect(() => {
-    const needsClicks =
-      mode === 'expanded' || mode === 'resolved' || mode === 'attention' || showStatusCard
-    interactiveForce(needsClicks)
-    onHoverChange(needsClicks || insideRef.current)
-    return () => interactiveForce(false)
+    onHoverChange(insideRef.current)
   }, [mode, onHoverChange, showStatusCard])
 
   useEffect(() => {
@@ -109,7 +110,6 @@ export function Island({
     return () => {
       if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
       if (insideRef.current) interactiveLeave()
-      interactiveForce(false)
     }
   }, [])
 
@@ -160,7 +160,6 @@ export function Island({
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
         onMouseDown={() => {
-          interactiveForce(true)
           onHoverChange(true)
         }}
       >
@@ -230,6 +229,8 @@ export function Island({
                       <Expanded
                         event={event}
                         waitingCount={waitingCount}
+                        actionPending={actionPending}
+                        actionError={actionError}
                         onAllow={onAllow}
                         onDeny={onDeny}
                         onDismiss={onDismiss}

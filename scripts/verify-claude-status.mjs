@@ -7,23 +7,9 @@
 import { spawnSync } from 'node:child_process'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { get, post, BASE } from './ryu-test-util.mjs'
 
-const BASE = 'http://127.0.0.1:41999'
 const hookPath = resolve(dirname(fileURLToPath(import.meta.url)), '../hooks/ryu-claude-status.mjs')
-
-async function get(path) {
-  const res = await fetch(`${BASE}${path}`)
-  return { ok: res.ok, status: res.status, json: await res.json().catch(() => null) }
-}
-
-async function post(path, body) {
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
-  return { ok: res.ok, status: res.status, json: await res.json().catch(() => null) }
-}
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg)

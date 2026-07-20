@@ -2,6 +2,8 @@ export type RyuAgent = 'claude' | 'codex' | 'cursor'
 
 export type RyuRisk = 'normal' | 'destructive'
 
+export type RyuHookKind = 'PreToolUse' | 'PermissionRequest'
+
 /** If no /status refresh for running|approval, fall back to idle (bridge + UI). Override with RYU_WATCHDOG_MS. */
 export const AGENT_STATUS_WATCHDOG_MS = 45_000
 
@@ -15,12 +17,26 @@ export interface RyuEvent {
   path?: string
   risk?: RyuRisk
   ts: number
+  /** Constrained pair key for PreToolUse ↔ PermissionRequest only */
+  pairKey?: string
+  hookKind?: RyuHookKind
 }
 
 export interface RyuDecision {
   id: string
   decision: 'allow' | 'deny'
   reason?: string
+}
+
+export type ActionResult =
+  | { ok: true }
+  | { ok: false; reason: 'unknown' | 'expired' | 'unavailable' | 'invalid' }
+
+export interface BridgeSnapshot {
+  revision: number
+  events: RyuEvent[]
+  ids: string[]
+  agents: Record<RyuAgent, AgentLiveStatus>
 }
 
 export type IslandMode = 'idle' | 'attention' | 'expanded' | 'resolved'

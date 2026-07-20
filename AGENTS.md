@@ -32,7 +32,8 @@ Catch-up narrative (human): `UPDATES.md`. Long product plan: `docs/product-and-f
 - Cursor IDE hooks → **status rings only**. Do **not** re-enable approve-every-tool (see lessons).
 - Dock Approve/Deny → **Claude Resume** (optional Cursor ACP spike only).
 - Fail-open: bridge down or dismiss → agent’s normal prompt; never silent auto-allow. Dismiss = `cancelled`, not allow.
-- Permissions-first. Queue + dismiss shipped (Track B); questions / batch / mobile = later (see `memory/product-loops.md`).
+- Bridge is authenticated (`~/.ryu/token`, `x-ryu-token`); hooks must stay loopback-only.
+- Permissions-first. Queue + dismiss shipped (Track B); Phase 1 trust remediation shipped (remote). Questions / batch / mobile = later.
 - UI source of truth: `docs/parallel-work-split.md` §6 · live code `src/island/*`, `src/theme.ts`. Do not redesign the island before implementing ahead.
 - Mac notch chrome lives under `diff/mac/`; Windows dock is the daily path.
 
@@ -51,7 +52,8 @@ Catch-up narrative (human): `UPDATES.md`. Long product plan: `docs/product-and-f
 ```bash
 npm install
 npm run verify:track-a         # S1–S8 headless
-npm run verify:track-b         # S9–S12 + Track A gate (preferred remote gate)
+npm run verify:track-b         # S9–S12 + Track A gate
+npm run verify:phase1-remediation  # P1.1–P1.5 trust/recovery (preferred remote gate)
 npm run bridge:headless        # bridge only, no Electron
 npm run dev                    # needs display/Electron where available
 npm run verify:cursor-status   # needs bridge up

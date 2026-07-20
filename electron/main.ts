@@ -1,6 +1,6 @@
 import { app, ipcMain, screen, type BrowserWindow } from 'electron'
 import { join } from 'node:path'
-import { RyuBridge } from './bridge'
+import { RyuBridge, computeInteractiveBounds } from './bridge'
 import type { RyuDecision } from '../shared/types'
 import * as windowWin from './window'
 import * as windowMac from '../diff/mac/electron/window'
@@ -54,12 +54,36 @@ if (!gotSingleInstanceLock) {
       windowApi.setWindowInteractive(notchWindow, Boolean(interactive))
     })
 
-    ipcMain.on('ryu:decision', (_e, decision: RyuDecision) => {
-      bridge.resolveDecision(decision)
+    ipcMain.on(
+      'ryu:setInteractiveBounds',
+      (_e, bounds: { x: number; y: number; width: number; height: number } | null) => {
+        if (!notchWindow || notchWindow.isDestroyed()) return
+        if (bounds && typeof windowApi.setInteractiveRegion === 'function') {
+          windowApi.setInteractiveRegion(notchWindow, bounds)
+        }
+      }
+    )
+
+    ipcMain.handle('ryu:decision', (_e, decision: RyuDecision) => {
+      return bridge.resolveDecision(decision)
     })
 
-    ipcMain.on('ryu:dismiss', (_e, id: string) => {
-      if (typeof id === 'string' && id) bridge.dismiss(id)
+    ipcMain.handle('ryu:dismiss', (_e, id: string) => {
+      if (typeof id !== 'string' || !id) return { ok: false, reason: 'invalid' }
+      return bridge.dismiss(id)
+    })
+
+    ipcMain.handle('ryu:snapshot', () => {
+      return bridge.getSnapshot()
+    })
+
+    // Expose bounds helper for future region updates (P1.4 remote unit coverage).
+    ipcMain.handle('ryu:computeBounds', (_e, mode: 'idle' | 'dock' | 'expanded') => {
+      const area =
+        process.platform === 'darwin'
+          ? screen.getPrimaryDisplay().bounds
+          : screen.getPrimaryDisplay().workArea
+      return computeInteractiveBounds(area, mode)
     })
 
     screen.on('display-metrics-changed', () => {

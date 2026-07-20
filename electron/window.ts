@@ -50,10 +50,19 @@ export function createNotchWindow(): BrowserWindow {
 
 export function setWindowInteractive(win: BrowserWindow, interactive: boolean): void {
   if (interactive) {
+    // Capture only while pointer is over dock/card (hover-driven). Do not steal focus.
     win.setIgnoreMouseEvents(false)
   } else {
     win.setIgnoreMouseEvents(true, { forward: true })
   }
+}
+
+/** Optional region hint for future split-window work; keeps full-screen hit layer for hover. */
+export function setInteractiveRegion(
+  _win: BrowserWindow,
+  _bounds: { x: number; y: number; width: number; height: number } | null
+): void {
+  // Windows keeps a full-screen click-through shell; interaction is hover-gated only.
 }
 
 export function repositionNotchWindow(win: BrowserWindow): void {

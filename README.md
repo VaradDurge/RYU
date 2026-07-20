@@ -120,6 +120,7 @@ Trust hooks in Codex if prompted (`/hooks`). Permission → dock (Codex icon) �
 | `npm run verify:claude-resume` | Claude Resume path (allow / dual-waiter / deny / fail-open) |
 | `npm run verify:track-a` | Headless S1–S8 contract suite (no Electron / no live agents) |
 | `npm run verify:track-b` | Headless S9–S12 (queue/dismiss/Codex/watchdog) + Track A gate |
+| `npm run verify:phase1-remediation` | Phase 1 trust/recovery contracts (snapshot, ack, pairing, auth) |
 | `npm run bridge:headless` | Bridge HTTP only on `:41999` (for verifies) |
 | `node scripts/ryu-cursor-acp.mjs` | Cursor CLI ACP ↔ RYU |
 | `npm run capture:demo` | Windows dock screenshots |

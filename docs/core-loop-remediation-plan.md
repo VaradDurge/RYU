@@ -1,6 +1,6 @@
 # Core-loop remediation plan
 
-**Status:** Phase 1 planned only — do not implement until user says go.  
+**Status:** Phase 1 implemented — remote acceptance `npm run verify:phase1-remediation` PASS (2026-07-20). Home checks remain open (`docs/HOME-PHASE1.md`).  
 **Source:** [`core-loop-failure-analysis.md`](./core-loop-failure-analysis.md)  
 **Rule:** Solidify the existing permission loop before adding questions, batch/risk, mobile, or another product wedge.
 

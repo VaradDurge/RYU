@@ -1,30 +1,20 @@
 #!/usr/bin/env node
 /**
  * Codex CLI PermissionRequest / PreToolUse hook for RYU.
- * Same bridge contract as Claude; agent branded as codex.
- * Fail-open on error/timeout.
+ * Unique request id per invocation; pairKey joins complementary hooks only.
  */
 
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
-import { createHash } from 'node:crypto'
-import { homedir } from 'node:os'
+import { appendFileSync, mkdirSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
 import { join, normalize, resolve } from 'node:path'
+import { ryuDir, ryuFetch, readLoopbackHost, readPort } from './ryu-bridge-client.mjs'
 
 const PREVIEW_MAX = 140
 const REQUEST_TIMEOUT_MS = 4 * 60 * 1000
 
-function ryuDir() {
-  const dir = join(homedir(), '.ryu')
-  try {
-    mkdirSync(dir, { recursive: true })
-  } catch {
-    // ignore
-  }
-  return dir
-}
-
 function log(line) {
   try {
+    mkdirSync(ryuDir(), { recursive: true })
     appendFileSync(join(ryuDir(), 'codex-hook.log'), `${new Date().toISOString()} ${line}\n`)
   } catch {
     // ignore
@@ -42,26 +32,6 @@ function truncate(s, max = PREVIEW_MAX) {
   return `${t.slice(0, max - 1)}…`
 }
 
-function readPort() {
-  if (process.env.RYU_PORT) {
-    const n = Number(process.env.RYU_PORT)
-    if (Number.isFinite(n) && n > 0) return n
-  }
-  try {
-    const n = Number(readFileSync(join(homedir(), '.ryu', 'port'), 'utf8').trim())
-    if (Number.isFinite(n) && n > 0) return n
-  } catch {
-    // ignore
-  }
-  return 41999
-}
-
-function stableEventId(sessionKey, toolName, toolInput) {
-  const key = `${sessionKey}\0${toolName}\0${JSON.stringify(toolInput ?? {})}`
-  const hex = createHash('sha256').update(key).digest('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`
-}
-
 function buildPreview(toolName, toolInput) {
   if (toolName === 'Bash' && toolInput?.command) return truncate(`Bash: ${toolInput.command}`)
   if ((toolName === 'Write' || toolName === 'Edit' || toolName === 'apply_patch') && toolInput?.file_path) {
@@ -72,19 +42,30 @@ function buildPreview(toolName, toolInput) {
   return truncate(toolName)
 }
 
-async function postStatus(port, status, detail) {
+function pairKeyFor(sessionKey, toolName, toolInput) {
+  const file = toolInput?.file_path
+    ? normalize(resolve(toolInput.cwd || process.cwd(), toolInput.file_path)).replace(/\\/g, '/').toLowerCase()
+    : ''
+  const contentFp =
+    typeof toolInput?.content === 'string'
+      ? createHash('sha256').update(toolInput.content).digest('hex').slice(0, 16)
+      : ''
+  const key = `${sessionKey}\0${toolName}\0${toolInput?.command || ''}\0${file}\0${contentFp}`
+  return createHash('sha256').update(key).digest('hex').slice(0, 24)
+}
+
+async function postStatus(status, detail) {
   try {
     const ac = new AbortController()
     const t = setTimeout(() => ac.abort(), 800)
-    await fetch(`http://127.0.0.1:${port}/status`, {
+    await ryuFetch('/status', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agent: 'codex', status, detail }),
+      body: { agent: 'codex', status, detail },
       signal: ac.signal
     })
     clearTimeout(t)
   } catch {
-    // ignore — permission path must not depend on status
+    // ignore
   }
 }
 
@@ -132,20 +113,23 @@ async function main() {
     return
   }
 
+  if (!readLoopbackHost()) {
+    log('fail-open non-loopback RYU_HOST rejected')
+    process.exit(0)
+    return
+  }
+
   const toolName = input.tool_name || 'Bash'
   const toolInput = input.tool_input || {}
   const cwd = input.cwd || ''
   const sessionKey = String(input.session_id || cwd || 'session')
-  const idInput = {
-    command: toolInput.command,
-    file_path: toolInput.file_path
-      ? normalize(resolve(cwd || process.cwd(), toolInput.file_path)).replace(/\\/g, '/').toLowerCase()
-      : undefined
-  }
+  const invocationId = input.tool_use_id || input.toolUseId || input.id || randomUUID()
+  const preview = buildPreview(toolName, { ...toolInput, cwd })
 
-  const preview = buildPreview(toolName, toolInput)
   const event = {
-    id: stableEventId(sessionKey, toolName, idInput),
+    id: String(invocationId),
+    pairKey: pairKeyFor(sessionKey, toolName, { ...toolInput, cwd }),
+    hookKind: hookEventName,
     agent: 'codex',
     sessionLabel: `codex · ${sessionKey}`,
     tool: toolName,
@@ -155,17 +139,15 @@ async function main() {
     ts: Date.now()
   }
 
-  const port = readPort()
-  log(`start ${hookEventName} id=${event.id}`)
-  await postStatus(port, 'approval', preview)
+  log(`start ${hookEventName} id=${event.id} pair=${event.pairKey} port=${readPort()}`)
+  await postStatus('approval', preview)
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/event`, {
+    const res = await ryuFetch('/event', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(event),
+      body: event,
       signal: controller.signal
     })
     if (!res.ok) {
@@ -178,20 +160,21 @@ async function main() {
       return
     }
     if (body.status === 'allow' || body.decision?.decision === 'allow') {
-      await postStatus(port, 'running', truncate(preview || 'Approved — continuing'))
+      await postStatus('running', truncate(preview || 'Approved — continuing'))
       emit(hookEventName, 'allow', body.decision?.reason || 'Approved via RYU')
       process.exit(0)
       return
     }
     if (body.status === 'deny' || body.decision?.decision === 'deny') {
-      await postStatus(port, 'error', 'Codex · Denied')
+      await postStatus('error', 'Codex · Denied')
       emit(hookEventName, 'deny', body.decision?.reason || 'Denied via RYU')
       process.exit(0)
       return
     }
     failOpen('unknown')
   } catch (err) {
-    failOpen(err?.message || 'fetch')
+    if (err?.code === 'RYU_NON_LOOPBACK') failOpen('non-loopback host')
+    else failOpen(err?.message || 'fetch')
   } finally {
     clearTimeout(timer)
   }

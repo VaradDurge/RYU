@@ -16,7 +16,9 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 - [x] Track B S10→S9→S11→S12 + verify:track-b green
 - [x] Independent core-loop technical + outcome audit → `docs/core-loop-failure-analysis.md`
 - [x] Three-phase remediation roadmap; Phase 1 build plan → `docs/core-loop-remediation-plan.md`
-- [ ] User reviews/approves Phase 1 scope → then implement P1.1–P1.5
+- [x] User reviews/approves Phase 1 scope → then implement P1.1–P1.5
+- [x] Implement Phase 1 P1.1–P1.5 + remote acceptance suite (`verify:phase1-remediation`)
+- [ ] Home Phase 1 checks (`docs/HOME-PHASE1.md`) when back at laptop
 - [ ] E6 Cursor Resume strategy note — later / optional after B
 
 ### Track A checklist (after go)
@@ -44,7 +46,7 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 | E5 | Ring watchdog (no stuck green) | Signal quality | done |
 | E6 | Cursor Resume strategy note (ACP vs selective) | Unblock Cursor product loop | todo |
 | E7 | Clean PR of working Windows path | Known-good home baseline | todo |
-| E8 | Phase 1 decision integrity/recovery (P1.1–P1.5) | Prevent invisible/false/over-broad decisions | planned |
+| E8 | Phase 1 decision integrity/recovery (P1.1–P1.5) | Prevent invisible/false/over-broad decisions | done (remote); home open |
 | E9 | Phase 2 truthful usable surface | Clear context + honest statuses | later |
 | E10 | Phase 3 production proof/expansion gate | Test shipped Electron + live integrations | later |
 

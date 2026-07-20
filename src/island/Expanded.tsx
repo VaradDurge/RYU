@@ -1,4 +1,4 @@
-import type { CSSProperties, MouseEvent } from 'react'
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
 import type { RyuEvent } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
 import { theme } from '../theme'
@@ -13,12 +13,16 @@ const agentNames = {
 export function Expanded({
   event,
   waitingCount = 1,
+  actionPending = false,
+  actionError = null,
   onAllow,
   onDeny,
   onDismiss
 }: {
   event: RyuEvent
   waitingCount?: number
+  actionPending?: boolean
+  actionError?: string | null
   onAllow: () => void
   onDeny: () => void
   onDismiss?: () => void
@@ -28,9 +32,10 @@ export function Expanded({
   const path = event.path || '~/Projects/ryu'
   const queuedBehind = Math.max(0, waitingCount - 1)
 
-  const handle = (fn: () => void) => (e: MouseEvent) => {
+  const handle = (fn: () => void) => (e: ReactMouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (actionPending) return
     fn()
   }
 
@@ -135,21 +140,44 @@ export function Expanded({
         Details
       </button>
 
+      {actionError ? (
+        <div
+          style={{
+            color: theme.denyText,
+            fontSize: 12,
+            marginBottom: 8,
+            textAlign: 'center'
+          }}
+        >
+          Request {actionError} — not approved. Try again or dismiss.
+        </div>
+      ) : null}
+
       <div style={{ display: 'flex', gap: 10, marginBottom: onDismiss ? 8 : 14, marginTop: 2 }}>
-        <button type="button" onMouseDown={handle(onDeny)} onClick={handle(onDeny)} style={denyBtn}>
+        <button
+          type="button"
+          disabled={actionPending}
+          onClick={handle(onDeny)}
+          style={{ ...denyBtn, opacity: actionPending ? 0.6 : 1 }}
+        >
           Deny
         </button>
-        <button type="button" onMouseDown={handle(onAllow)} onClick={handle(onAllow)} style={approveBtn}>
-          Approve
+        <button
+          type="button"
+          disabled={actionPending}
+          onClick={handle(onAllow)}
+          style={{ ...approveBtn, opacity: actionPending ? 0.6 : 1 }}
+        >
+          {actionPending ? 'Working…' : 'Approve'}
         </button>
       </div>
 
       {onDismiss ? (
         <button
           type="button"
-          onMouseDown={handle(onDismiss)}
+          disabled={actionPending}
           onClick={handle(onDismiss)}
-          style={dismissBtn}
+          style={{ ...dismissBtn, opacity: actionPending ? 0.6 : 1 }}
         >
           Dismiss
         </button>
@@ -166,7 +194,7 @@ export function Expanded({
         }}
       >
         <LockGlyph />
-        Local mode — All data stays on this device
+        Local bridge on this machine — loopback only
       </div>
     </div>
   )

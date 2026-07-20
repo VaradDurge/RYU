@@ -55,14 +55,18 @@ export function createNotchWindow(): BrowserWindow {
 
 export function setWindowInteractive(win: BrowserWindow, interactive: boolean): void {
   if (interactive) {
-    // Full mouse capture — required for reliable Approve/Deny clicks on macOS
+    // Hover-gated capture only — do not steal keyboard focus from the agent terminal.
     win.setIgnoreMouseEvents(false)
-    if (!win.isFocused()) {
-      win.focus()
-    }
   } else {
     win.setIgnoreMouseEvents(true, { forward: true })
   }
+}
+
+export function setInteractiveRegion(
+  _win: BrowserWindow,
+  _bounds: { x: number; y: number; width: number; height: number } | null
+): void {
+  // Mac keeps full-display click-through shell; interaction is hover-gated only.
 }
 
 export function repositionNotchWindow(win: BrowserWindow): void {

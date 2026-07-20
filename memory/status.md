@@ -16,7 +16,8 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 - Fail-open when RYU down / dismiss → cancelled (scripted)
 - Deny path awaits status post → `agents.claude=error` before exit
 - **Audit:** `docs/core-loop-failure-analysis.md` identifies pending hydration, decision acknowledgment, hook-ID collision, click-through, and local trust boundary as unresolved P0 risks.
-- **Next plan:** `docs/core-loop-remediation-plan.md` — Phase 1 P1.1–P1.5 is planned; no remediation code started.
+- **Phase 1 remediation (remote):** shared `bridge-core`, snapshot hydration, ack decide/dismiss, pairKey coalescing, token/loopback/body limits, hover-only interaction — `npm run verify:phase1-remediation` PASS
+- Home Phase 1 checks still open: `docs/HOME-PHASE1.md`
 
 ## Does not / deferred
 

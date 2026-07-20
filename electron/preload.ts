@@ -1,15 +1,27 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AgentStatusUpdate, RyuDecision, RyuEvent } from '../shared/types'
+import type {
+  ActionResult,
+  AgentStatusUpdate,
+  BridgeSnapshot,
+  RyuDecision,
+  RyuEvent
+} from '../shared/types'
 
 contextBridge.exposeInMainWorld('ryu', {
   setInteractive: (interactive: boolean) => {
     ipcRenderer.send('ryu:setInteractive', interactive)
   },
-  decide: (decision: RyuDecision) => {
-    ipcRenderer.send('ryu:decision', decision)
+  setInteractiveBounds: (bounds: { x: number; y: number; width: number; height: number } | null) => {
+    ipcRenderer.send('ryu:setInteractiveBounds', bounds)
   },
-  dismiss: (id: string) => {
-    ipcRenderer.send('ryu:dismiss', id)
+  decide: (decision: RyuDecision): Promise<ActionResult> => {
+    return ipcRenderer.invoke('ryu:decision', decision)
+  },
+  dismiss: (id: string): Promise<ActionResult> => {
+    return ipcRenderer.invoke('ryu:dismiss', id)
+  },
+  getSnapshot: (): Promise<BridgeSnapshot> => {
+    return ipcRenderer.invoke('ryu:snapshot')
   },
   onEvent: (handler: (event: RyuEvent) => void) => {
     const listener = (_: Electron.IpcRendererEvent, event: RyuEvent) => handler(event)
