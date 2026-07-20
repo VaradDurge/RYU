@@ -11,7 +11,9 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 - [x] Agree Track A success cases S1–S8 (H1–H3 home-only)
 - [x] Write Track A plan → `tasks/track-a-plan.md`
 - [x] User **go** on Track A plan → implement
-- [ ] Track B later (S9–S12) — do not start until A done / user asks
+- [x] Write Track B plan → `tasks/track-b-plan.md`
+- [ ] User **go** on Track B (confirm S9–S12) → implement
+- [ ] E6 Cursor Resume strategy note — later / optional after B
 
 ### Track A checklist (after go)
 
