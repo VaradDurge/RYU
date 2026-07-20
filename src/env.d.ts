@@ -7,6 +7,7 @@ declare global {
     ryu: {
       setInteractive: (interactive: boolean) => void
       decide: (decision: RyuDecision) => void
+      dismiss: (id: string) => void
       onEvent: (handler: (event: RyuEvent) => void) => () => void
       onCancel: (handler: (id: string) => void) => () => void
       onAgentStatus: (handler: (update: AgentStatusUpdate) => void) => () => void

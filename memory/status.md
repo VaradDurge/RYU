@@ -7,10 +7,13 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 - Dock UI + demo Inject (`npm run dev`)
 - Bridge `127.0.0.1:41999` (`/event` `/decision` `/status` `/agents`)
 - **Track A contracts** — `npm run verify:track-a` (headless) S1–S8 PASS
-- Headless bridge: `npm run bridge:headless` / `scripts/headless-bridge.mjs`
+- **Track B contracts** — `npm run verify:track-b` S9–S12 + Track A gate PASS
+- Headless bridge: `npm run bridge:headless` (+ `/dismiss`, status watchdog)
 - Cursor **status rings** (live + `verify:cursor-status`)
 - Claude status + permission plumbing (`verify:claude-status`, `verify:claude-resume`)
-- Fail-open when RYU down (scripted)
+- Codex permission + status parity (scripted; live still home)
+- Island FIFO queue + in-dock **Dismiss**
+- Fail-open when RYU down / dismiss → cancelled (scripted)
 - Deny path awaits status post → `agents.claude=error` before exit
 
 ## Does not / deferred
@@ -18,9 +21,8 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 - Claude **live** Write → Approve → file (home checklist; esp. WSL)
 - Cursor Approve on every tool — **intentionally off** (spam)
 - Cursor Multitask external approve — unsupported
-- Codex at Cursor/Claude parity — early
+- Live Codex Resume on user machine — not claimed by scripts
 - Mac notch track — `diff/mac/` only; not Windows daily path
-- Stale permission cards — restart RYU workaround
 
 ## Deliberate product rule
 

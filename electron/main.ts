@@ -58,6 +58,10 @@ if (!gotSingleInstanceLock) {
       bridge.resolveDecision(decision)
     })
 
+    ipcMain.on('ryu:dismiss', (_e, id: string) => {
+      if (typeof id === 'string' && id) bridge.dismiss(id)
+    })
+
     screen.on('display-metrics-changed', () => {
       if (notchWindow && !notchWindow.isDestroyed()) windowApi.repositionNotchWindow(notchWindow)
     })

@@ -72,10 +72,20 @@ function buildPreview(toolName, toolInput) {
   return truncate(toolName)
 }
 
-async function readStdin() {
-  const chunks = []
-  for await (const chunk of process.stdin) chunks.push(chunk)
-  return Buffer.concat(chunks).toString('utf8')
+async function postStatus(port, status, detail) {
+  try {
+    const ac = new AbortController()
+    const t = setTimeout(() => ac.abort(), 800)
+    await fetch(`http://127.0.0.1:${port}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent: 'codex', status, detail }),
+      signal: ac.signal
+    })
+    clearTimeout(t)
+  } catch {
+    // ignore — permission path must not depend on status
+  }
 }
 
 function emit(hookEventName, decision, reason) {
@@ -99,6 +109,12 @@ function emit(hookEventName, decision, reason) {
       }
     })}\n`
   )
+}
+
+async function readStdin() {
+  const chunks = []
+  for await (const chunk of process.stdin) chunks.push(chunk)
+  return Buffer.concat(chunks).toString('utf8')
 }
 
 async function main() {
@@ -141,6 +157,7 @@ async function main() {
 
   const port = readPort()
   log(`start ${hookEventName} id=${event.id}`)
+  await postStatus(port, 'approval', preview)
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
@@ -161,11 +178,13 @@ async function main() {
       return
     }
     if (body.status === 'allow' || body.decision?.decision === 'allow') {
+      await postStatus(port, 'running', truncate(preview || 'Approved — continuing'))
       emit(hookEventName, 'allow', body.decision?.reason || 'Approved via RYU')
       process.exit(0)
       return
     }
     if (body.status === 'deny' || body.decision?.decision === 'deny') {
+      await postStatus(port, 'error', 'Codex · Denied')
       emit(hookEventName, 'deny', body.decision?.reason || 'Denied via RYU')
       process.exit(0)
       return

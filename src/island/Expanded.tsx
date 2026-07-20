@@ -12,16 +12,21 @@ const agentNames = {
 /** Permission card under the multi-agent dock. */
 export function Expanded({
   event,
+  waitingCount = 1,
   onAllow,
-  onDeny
+  onDeny,
+  onDismiss
 }: {
   event: RyuEvent
+  waitingCount?: number
   onAllow: () => void
   onDeny: () => void
+  onDismiss?: () => void
 }) {
   const name = agentNames[event.agent]
   const command = stripToolPrefix(event.preview)
   const path = event.path || '~/Projects/ryu'
+  const queuedBehind = Math.max(0, waitingCount - 1)
 
   const handle = (fn: () => void) => (e: MouseEvent) => {
     e.preventDefault()
@@ -68,7 +73,7 @@ export function Expanded({
               boxShadow: `0 0 6px ${theme.waiting}`
             }}
           />
-          Waiting
+          {queuedBehind > 0 ? `${waitingCount} waiting` : 'Waiting'}
         </span>
       </div>
 
@@ -130,7 +135,7 @@ export function Expanded({
         Details
       </button>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 14, marginTop: 2 }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: onDismiss ? 8 : 14, marginTop: 2 }}>
         <button type="button" onMouseDown={handle(onDeny)} onClick={handle(onDeny)} style={denyBtn}>
           Deny
         </button>
@@ -138,6 +143,17 @@ export function Expanded({
           Approve
         </button>
       </div>
+
+      {onDismiss ? (
+        <button
+          type="button"
+          onMouseDown={handle(onDismiss)}
+          onClick={handle(onDismiss)}
+          style={dismissBtn}
+        >
+          Dismiss
+        </button>
+      ) : null}
 
       <div
         style={{
@@ -252,4 +268,18 @@ const approveBtn: CSSProperties = {
   fontWeight: 650,
   cursor: 'pointer',
   pointerEvents: 'auto'
+}
+
+const dismissBtn: CSSProperties = {
+  width: '100%',
+  border: 'none',
+  background: 'transparent',
+  color: theme.textDim,
+  borderRadius: 10,
+  padding: '6px 8px 12px',
+  fontSize: 12,
+  fontWeight: 500,
+  cursor: 'pointer',
+  pointerEvents: 'auto',
+  marginBottom: 4
 }

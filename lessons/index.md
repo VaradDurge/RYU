@@ -9,6 +9,7 @@ Compound failures/wins. One short file per lesson. Link from here.
 | 2026-07-20 | Live agent proof ≠ script verify | `lessons/2026-07-20-verify-vs-live.md` |
 | 2026-07-20 | Stale dock cards need restart (no dismiss yet) | `lessons/2026-07-20-stale-permission-cards.md` |
 | 2026-07-20 | Await status POST before hook exit | `lessons/2026-07-20-await-status-before-exit.md` |
+| 2026-07-20 | Dismiss → cancelled, never allow | `lessons/2026-07-20-dismiss-is-cancelled-not-allow.md` |
 
 ## How to add
 

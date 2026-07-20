@@ -10,7 +10,7 @@ const isDev =
   (import.meta.env.DEV || window.ryu?.isDev?.() === true)
 
 export default function App() {
-  const { state, ingestEvent, expand, resolve, goIdle } = useIsland()
+  const { state, waitingCount, ingestEvent, expand, resolve, advance, drop } = useIsland()
 
   useEffect(() => {
     if (!window.ryu?.onEvent) return
@@ -21,8 +21,8 @@ export default function App() {
 
   useEffect(() => {
     if (!window.ryu?.onCancel) return
-    return window.ryu.onCancel(() => goIdle())
-  }, [goIdle])
+    return window.ryu.onCancel((id) => drop(id))
+  }, [drop])
 
   useEffect(() => {
     const onBlur = () => resetInteractiveHover()
@@ -32,9 +32,9 @@ export default function App() {
 
   useEffect(() => {
     if (state.mode !== 'resolved') return
-    const t = window.setTimeout(() => goIdle(), 900)
+    const t = window.setTimeout(() => advance(), 900)
     return () => clearTimeout(t)
-  }, [state.mode, goIdle])
+  }, [state.mode, advance])
 
   const decide = (decision: RyuDecision['decision']) => {
     if (!state.current) return
@@ -47,15 +47,23 @@ export default function App() {
     resolve(decision)
   }
 
+  const dismiss = () => {
+    if (!state.current) return
+    window.ryu?.dismiss?.(state.current.id)
+    drop(state.current.id)
+  }
+
   return (
     <>
       <Island
         mode={state.mode}
         event={state.current}
+        waitingCount={waitingCount}
         lastDecision={state.lastDecision}
         onExpand={expand}
         onAllow={() => decide('allow')}
         onDeny={() => decide('deny')}
+        onDismiss={dismiss}
         onHoverChange={() => {
           /* Island owns interactiveEnter/Force; parent only needs the callback for API parity */
         }}

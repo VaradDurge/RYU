@@ -12,7 +12,8 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 - [x] Write Track A plan → `tasks/track-a-plan.md`
 - [x] User **go** on Track A plan → implement
 - [x] Write Track B plan → `tasks/track-b-plan.md`
-- [ ] User **go** on Track B (confirm S9–S12) → implement
+- [x] User **go** on Track B (confirm S9–S12) → implement
+- [x] Track B S10→S9→S11→S12 + verify:track-b green
 - [ ] E6 Cursor Resume strategy note — later / optional after B
 
 ### Track A checklist (after go)
@@ -33,11 +34,11 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 
 | ID | Task | Value | Status |
 | --- | --- | --- | --- |
-| E1 | Harden bridge/hook `verify:*` with named stage asserts | Trust that Decide/Resume is real | todo |
-| E2 | Codex status+permission verify parity | Multi-agent demo | todo |
-| E3 | Phase 2 queue plumbing + fixtures | Parallel permissions | todo |
-| E4 | In-dock dismiss stale cards | Attention quality | todo |
-| E5 | Ring watchdog (no stuck green) | Signal quality | todo |
+| E1 | Harden bridge/hook `verify:*` with named stage asserts | Trust that Decide/Resume is real | done |
+| E2 | Codex status+permission verify parity | Multi-agent demo | done |
+| E3 | Phase 2 queue plumbing + fixtures | Parallel permissions | done |
+| E4 | In-dock dismiss stale cards | Attention quality | done |
+| E5 | Ring watchdog (no stuck green) | Signal quality | done |
 | E6 | Cursor Resume strategy note (ACP vs selective) | Unblock Cursor product loop | todo |
 | E7 | Clean PR of working Windows path | Known-good home baseline | todo |
 

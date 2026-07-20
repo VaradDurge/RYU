@@ -21,18 +21,22 @@ const LEAVE_GRACE_MS = 220
 export function Island({
   mode,
   event,
+  waitingCount = 0,
   lastDecision,
   onExpand,
   onAllow,
   onDeny,
+  onDismiss,
   onHoverChange
 }: {
   mode: IslandMode
   event: RyuEvent | null
+  waitingCount?: number
   lastDecision: 'allow' | 'deny' | null
   onExpand: () => void
   onAllow: () => void
   onDeny: () => void
+  onDismiss?: () => void
   onHoverChange: (hovering: boolean) => void
 }) {
   const reduce = useReducedMotion()
@@ -223,7 +227,13 @@ export function Island({
                         pointerEvents: 'auto'
                       }}
                     >
-                      <Expanded event={event} onAllow={onAllow} onDeny={onDeny} />
+                      <Expanded
+                        event={event}
+                        waitingCount={waitingCount}
+                        onAllow={onAllow}
+                        onDeny={onDeny}
+                        onDismiss={onDismiss}
+                      />
                     </div>
                   </motion.div>
                 )}

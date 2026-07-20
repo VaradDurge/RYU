@@ -1,6 +1,6 @@
 # Track B plan — queue, dismiss, Codex parity, watchdog (S9–S12)
 
-**Status:** plan only — await go to implement  
+**Status:** implemented — `npm run verify:track-b` S9–S12 + Track A PASS (2026-07-20)  
 **Depends on:** Track A green (`npm run verify:track-a`)  
 **Out of scope:** H1–H3 home-only live; Phase 3+ questions/batch/mobile; Cursor approve-every-tool
 

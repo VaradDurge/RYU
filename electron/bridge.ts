@@ -3,12 +3,13 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
-import type {
-  AgentStatusUpdate,
-  BridgeDecisionResponse,
-  RyuAgent,
-  RyuDecision,
-  RyuEvent
+import {
+  AGENT_STATUS_WATCHDOG_MS,
+  type AgentStatusUpdate,
+  type BridgeDecisionResponse,
+  type RyuAgent,
+  type RyuDecision,
+  type RyuEvent
 } from '../shared/types'
 
 const DEFAULT_PORT = 41999
@@ -24,6 +25,12 @@ interface Pending {
   waiters: Waiter[]
 }
 
+function watchdogMs(): number {
+  const n = Number(process.env.RYU_WATCHDOG_MS)
+  if (Number.isFinite(n) && n > 0) return n
+  return AGENT_STATUS_WATCHDOG_MS
+}
+
 export class RyuBridge {
   private server: Server | null = null
   private pending = new Map<string, Pending>()
@@ -35,6 +42,7 @@ export class RyuBridge {
     claude: 'idle',
     codex: 'idle'
   }
+  private statusWatchdogs = new Map<RyuAgent, NodeJS.Timeout>()
 
   attachWindow(win: BrowserWindow): void {
     this.win = win
@@ -63,6 +71,8 @@ export class RyuBridge {
       }
     }
     this.pending.clear()
+    for (const t of this.statusWatchdogs.values()) clearTimeout(t)
+    this.statusWatchdogs.clear()
     this.server?.close()
     this.server = null
   }
@@ -89,6 +99,25 @@ export class RyuBridge {
     return true
   }
 
+  /** Clear a stuck pending permission without allow/deny (fail-open for waiters). */
+  dismiss(id: string): boolean {
+    const item = this.pending.get(id)
+    if (!item) {
+      console.warn(`[ryu] dismiss for unknown id ${id}`)
+      return false
+    }
+
+    const payload = { status: 'cancelled' as const } satisfies BridgeDecisionResponse
+    for (const waiter of item.waiters) {
+      clearTimeout(waiter.timer)
+      this.json(waiter.res, 200, payload)
+    }
+    this.pending.delete(id)
+    this.win?.webContents.send('ryu:cancel', id)
+    console.log(`[ryu] dismiss id=${id}`)
+    return true
+  }
+
   private dropWaiter(id: string, res: ServerResponse): void {
     const item = this.pending.get(id)
     if (!item) return
@@ -102,6 +131,30 @@ export class RyuBridge {
 
     this.pending.delete(id)
     this.win?.webContents.send('ryu:cancel', id)
+  }
+
+  private clearStatusWatchdog(agent: RyuAgent): void {
+    const t = this.statusWatchdogs.get(agent)
+    if (t) {
+      clearTimeout(t)
+      this.statusWatchdogs.delete(agent)
+    }
+  }
+
+  private armStatusWatchdog(agent: RyuAgent): void {
+    this.clearStatusWatchdog(agent)
+    const ms = watchdogMs()
+    this.statusWatchdogs.set(
+      agent,
+      setTimeout(() => {
+        this.statusWatchdogs.delete(agent)
+        if (this.agentStatus[agent] !== 'running' && this.agentStatus[agent] !== 'approval') return
+        this.agentStatus[agent] = 'idle'
+        const update: AgentStatusUpdate = { agent, status: 'idle', detail: `${agent} · Idle` }
+        this.win?.webContents.send('ryu:agentStatus', update)
+        console.log(`[ryu] watchdog idle agent=${agent}`)
+      }, ms)
+    )
   }
 
   private writeConfigFiles(port: number): void {
@@ -186,6 +239,24 @@ export class RyuBridge {
       return
     }
 
+    if (req.method === 'POST' && req.url === '/dismiss') {
+      const body = await this.readBody(req)
+      let payload: { id?: string }
+      try {
+        payload = JSON.parse(body) as { id?: string }
+      } catch {
+        this.json(res, 400, { error: 'invalid json' })
+        return
+      }
+      if (!payload?.id) {
+        this.json(res, 400, { error: 'missing id' })
+        return
+      }
+      const ok = this.dismiss(payload.id)
+      this.json(res, ok ? 200 : 404, { ok })
+      return
+    }
+
     // Live agent ring status (Cursor hooks → green while working)
     if (req.method === 'POST' && req.url === '/status') {
       const body = await this.readBody(req)
@@ -203,6 +274,11 @@ export class RyuBridge {
         return
       }
       this.agentStatus[update.agent] = update.status
+      if (update.status === 'running' || update.status === 'approval') {
+        this.armStatusWatchdog(update.agent)
+      } else {
+        this.clearStatusWatchdog(update.agent)
+      }
       this.win?.webContents.send('ryu:agentStatus', update)
       this.json(res, 200, { ok: true, agents: this.agentStatus })
       return

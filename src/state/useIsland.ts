@@ -4,6 +4,8 @@ import type { IslandMode, RyuDecision, RyuEvent } from '../../shared/types'
 export interface IslandState {
   mode: IslandMode
   current: RyuEvent | null
+  /** Additional pending permissions behind `current` (FIFO). */
+  queue: RyuEvent[]
   lastDecision: RyuDecision['decision'] | null
 }
 
@@ -12,22 +14,47 @@ type Action =
   | { type: 'expand' }
   | { type: 'collapse' }
   | { type: 'resolved'; decision: RyuDecision['decision'] }
+  | { type: 'advance' }
+  | { type: 'drop'; id: string }
   | { type: 'idle' }
 
 const initial: IslandState = {
   mode: 'idle',
   current: null,
+  queue: [],
   lastDecision: null
+}
+
+function advanceFrom(state: IslandState): IslandState {
+  const next = state.queue[0]
+  if (next) {
+    return {
+      mode: 'attention',
+      current: next,
+      queue: state.queue.slice(1),
+      lastDecision: null
+    }
+  }
+  return initial
 }
 
 function reducer(state: IslandState, action: Action): IslandState {
   switch (action.type) {
-    case 'event':
-      return {
-        mode: 'attention',
-        current: action.event,
-        lastDecision: null
+    case 'event': {
+      if (!state.current) {
+        return {
+          mode: 'attention',
+          current: action.event,
+          queue: [],
+          lastDecision: null
+        }
       }
+      if (state.current.id === action.event.id) {
+        return { ...state, current: action.event }
+      }
+      if (state.queue.some((e) => e.id === action.event.id)) return state
+      return { ...state, queue: [...state.queue, action.event] }
+    }
     case 'expand':
       if (!state.current) return state
       return { ...state, mode: 'expanded' }
@@ -40,6 +67,12 @@ function reducer(state: IslandState, action: Action): IslandState {
         mode: 'resolved',
         lastDecision: action.decision
       }
+    case 'advance':
+      return advanceFrom(state)
+    case 'drop': {
+      if (state.current?.id === action.id) return advanceFrom(state)
+      return { ...state, queue: state.queue.filter((e) => e.id !== action.id) }
+    }
     case 'idle':
       return initial
     default:
@@ -61,7 +94,11 @@ export function useIsland() {
     dispatch({ type: 'resolved', decision })
   }, [])
 
+  const advance = useCallback(() => dispatch({ type: 'advance' }), [])
+  const drop = useCallback((id: string) => dispatch({ type: 'drop', id }), [])
   const goIdle = useCallback(() => dispatch({ type: 'idle' }), [])
 
-  return { state, ingestEvent, expand, collapse, resolve, goIdle }
+  const waitingCount = (state.current ? 1 : 0) + state.queue.length
+
+  return { state, waitingCount, ingestEvent, expand, collapse, resolve, advance, drop, goIdle }
 }

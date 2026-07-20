@@ -12,12 +12,12 @@ Source of truth (long): `docs/product-and-feature-loops.md`
 | --- | --- | --- | --- |
 | F1 | Permission decide (Allow/Deny) | 0–1 | Track A S1–S4/S7 green (headless); live WSL sign-off pending |
 | F2 | Attention / presence (rings) | 0–1 | Track A S5–S6 green; Cursor live OK; Claude wired + verify OK |
-| F3 | Collapse / return-to-calm | 0–1 | UI exists; stale cards can stick → restart RYU |
+| F3 | Collapse / return-to-calm | 0–1 | Dismiss + watchdog (Track B S10/S12); live UX still home |
 | F4 | Questions / AskUserQuestion | 3 | Logged — not started |
-| F5 | Multi-item queue | 2 | Logged — not started |
+| F5 | Multi-item queue | 2 | Bridge + island FIFO (Track B S9); badge = “N waiting” |
 | F6 | Jump-to-session | 4 | Logged — not started |
 | F7 | Risk / batch | 4 | Logged — not started |
-| F8 | Multi-agent adapters | 2–5 | Cursor status + Claude resume; Codex early; Cursor approve off |
+| F8 | Multi-agent adapters | 2–5 | Cursor status + Claude resume; Codex script parity (S11); Cursor approve off |
 | F9 | Away-from-desk / mobile | 5 | Logged — not started |
 
 ## Phase map

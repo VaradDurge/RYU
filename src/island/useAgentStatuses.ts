@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import type {
-  AgentStatusUpdate,
-  IslandMode,
-  RyuAgent,
-  RyuDecision,
-  RyuEvent
+import {
+  AGENT_STATUS_WATCHDOG_MS,
+  type AgentStatusUpdate,
+  type IslandMode,
+  type RyuAgent,
+  type RyuDecision,
+  type RyuEvent
 } from '../../shared/types'
 import type { AgentStatusMap, LiveAgentStatus } from './dockTypes'
 import { DOCK_AGENTS } from './dockTypes'
@@ -23,7 +24,7 @@ const IDLE_SUMMARIES: Record<RyuAgent, string> = {
 }
 
 /** If no running/approval heartbeat for this long → fall back to blue idle */
-const WATCHDOG_MS = 45_000
+const WATCHDOG_MS = AGENT_STATUS_WATCHDOG_MS
 const ERROR_SETTLE_MS = 2800
 
 export type AgentSummaryMap = Record<RyuAgent, string>

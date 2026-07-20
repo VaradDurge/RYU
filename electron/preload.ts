@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('ryu', {
   decide: (decision: RyuDecision) => {
     ipcRenderer.send('ryu:decision', decision)
   },
+  dismiss: (id: string) => {
+    ipcRenderer.send('ryu:dismiss', id)
+  },
   onEvent: (handler: (event: RyuEvent) => void) => {
     const listener = (_: Electron.IpcRendererEvent, event: RyuEvent) => handler(event)
     ipcRenderer.on('ryu:event', listener)
