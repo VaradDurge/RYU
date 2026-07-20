@@ -104,20 +104,55 @@ export function shouldPairWith(existing, incoming) {
   return kinds.has('PreToolUse') && kinds.has('PermissionRequest')
 }
 
+/**
+ * Interactive hit bounds for the dock/card — never the full work area.
+ * Modes: idle | attention | dock | expanded | resolved | unavailable
+ */
 export function computeInteractiveBounds(workArea, mode = 'idle') {
-  const width = mode === 'expanded' ? 440 : 360
-  const height = mode === 'expanded' ? 420 : mode === 'dock' ? 96 : 56
+  const m = mode || 'idle'
+  let width = 360
+  let height = 56
+  if (m === 'dock' || m === 'attention') {
+    width = 360
+    height = 96
+  } else if (m === 'expanded') {
+    width = 440
+    height = 420
+  } else if (m === 'resolved') {
+    width = 360
+    height = 120
+  } else if (m === 'unavailable') {
+    width = 360
+    height = 140
+  } else {
+    // idle
+    width = 360
+    height = 56
+  }
   const x = Math.round(workArea.x + (workArea.width - width) / 2)
   const y = workArea.y
-  return { x, y, width, height, mode }
+  // Guard: never claim the full display as the interactive surface.
+  if (width >= workArea.width && height >= workArea.height) {
+    throw new Error('interactive bounds must not cover the full work area')
+  }
+  return { x, y, width, height, mode: m }
+}
+
+function resolveHomeDir(options = {}) {
+  if (typeof options.homeDir === 'string' && options.homeDir.trim()) return options.homeDir.trim()
+  if (typeof process.env.RYU_HOME === 'string' && process.env.RYU_HOME.trim()) {
+    return process.env.RYU_HOME.trim()
+  }
+  return homedir()
 }
 
 export class RyuBridgeCore {
   constructor(options = {}) {
-    this.port = options.port || DEFAULT_PORT
+    this.port = options.port || Number(process.env.RYU_PORT) || DEFAULT_PORT
     this.token = options.token || randomBytes(24).toString('hex')
     this.requireAuth = options.requireAuth !== false
     this.headless = Boolean(options.headless)
+    this.homeDir = resolveHomeDir(options)
     this.onEvent = options.onEvent || null
     this.onCancel = options.onCancel || null
     this.onAgentStatus = options.onAgentStatus || null
@@ -246,7 +281,7 @@ export class RyuBridgeCore {
   }
 
   writeConfigFiles() {
-    const dir = join(homedir(), '.ryu')
+    const dir = join(this.homeDir, '.ryu')
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'port'), String(this.port), 'utf8')
     writeFileSync(join(dir, 'host'), '127.0.0.1', 'utf8')

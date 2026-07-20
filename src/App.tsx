@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import type { RyuDecision } from '../shared/types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { BridgeHealth, RyuDecision } from '../shared/types'
 import { DemoHarness } from './demo/harness'
 import { Island } from './island/Island'
 import { resetInteractiveHover } from './lib/interactiveHover'
@@ -22,6 +22,8 @@ export default function App() {
     failAction
   } = useIsland()
   const seenIds = useRef(new Set<string>())
+  const [bridgeHealth, setBridgeHealth] = useState<BridgeHealth | null>(null)
+  const [bridgeRetrying, setBridgeRetrying] = useState(false)
 
   useEffect(() => {
     if (!window.ryu?.onEvent) return
@@ -35,18 +37,50 @@ export default function App() {
     void (async () => {
       try {
         const snap = await window.ryu?.getSnapshot?.()
+        if (snap?.health) setBridgeHealth(snap.health)
         if (!snap?.events?.length) return
         for (const event of snap.events) {
           seenIds.current.add(event.id)
           ingestEvent(event)
         }
       } catch {
-        // ignore — bridge may be unavailable
+        setBridgeHealth({
+          bridge: 'unavailable',
+          reason: 'snapshot_failed',
+          lifecycle: 'unavailable'
+        })
       }
     })()
 
     return unsub
   }, [ingestEvent])
+
+  useEffect(() => {
+    if (!window.ryu?.onHealth) return
+    return window.ryu.onHealth((health) => {
+      setBridgeHealth(health)
+      setBridgeRetrying(Boolean(health.retrying))
+    })
+  }, [])
+
+  const retryBridge = useCallback(async () => {
+    if (!window.ryu?.retryBridge || bridgeRetrying) return
+    setBridgeRetrying(true)
+    try {
+      const result = await window.ryu.retryBridge()
+      const snap = await window.ryu.getSnapshot?.()
+      if (snap?.health) setBridgeHealth(snap.health)
+      if (!result.ok && !snap?.health) {
+        setBridgeHealth({
+          bridge: 'unavailable',
+          reason: result.reason || 'retry_failed',
+          lifecycle: 'unavailable'
+        })
+      }
+    } finally {
+      setBridgeRetrying(false)
+    }
+  }, [bridgeRetrying])
 
   useEffect(() => {
     if (!window.ryu?.onCancel) return
@@ -123,6 +157,9 @@ export default function App() {
         onHoverChange={() => {
           /* Island owns interactiveEnter/Leave */
         }}
+        bridgeReason={bridgeHealth?.reason ?? null}
+        bridgeRetrying={bridgeRetrying || Boolean(bridgeHealth?.retrying)}
+        onRetryBridge={() => void retryBridge()}
       />
       <DemoHarness visible={isDev} onInject={ingestEvent} />
     </>

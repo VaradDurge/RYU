@@ -28,7 +28,10 @@ export function Island({
   onAllow,
   onDeny,
   onDismiss,
-  onHoverChange
+  onHoverChange,
+  bridgeReason = null,
+  bridgeRetrying = false,
+  onRetryBridge
 }: {
   mode: IslandMode
   event: RyuEvent | null
@@ -41,6 +44,9 @@ export function Island({
   onDeny: () => void
   onDismiss?: () => void
   onHoverChange: (hovering: boolean) => void
+  bridgeReason?: string | null
+  bridgeRetrying?: boolean
+  onRetryBridge?: () => void
 }) {
   const reduce = useReducedMotion()
   const [topHover, setTopHover] = useState(false)
@@ -272,6 +278,9 @@ export function Island({
                       status={statuses[selectedAgent]}
                       summary={summaries[selectedAgent]}
                       bridgeUnavailable={bridgeUnavailable}
+                      bridgeReason={bridgeReason}
+                      retrying={bridgeRetrying}
+                      onRetryBridge={onRetryBridge}
                     />
                   </motion.div>
                 )}

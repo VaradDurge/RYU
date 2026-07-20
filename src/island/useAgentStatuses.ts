@@ -143,6 +143,23 @@ export function useAgentStatuses(
     })
   }, [])
 
+  useEffect(() => {
+    if (!window.ryu?.onHealth) return
+    return window.ryu.onHealth((health) => {
+      setStatusState((s) =>
+        reduceAgentStatus(s, {
+          type: 'health',
+          health: {
+            bridge: health.bridge,
+            port: health.port ?? null,
+            reason: health.reason ?? null,
+            startedAt: health.startedAt ?? null
+          }
+        })
+      )
+    })
+  }, [])
+
   // Hydrate statuses + health from bridge snapshot (P2.4 / P2.5).
   useEffect(() => {
     void (async () => {

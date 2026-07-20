@@ -20,7 +20,10 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 - Home Phase 1 checks still open: `docs/HOME-PHASE1.md`
 - **Phase 2 surface (remote):** ordered status revisions, `stale` (not false idle), bridge health snapshot, no auto-expand Attention, Understand card session/details — `npm run verify:phase2-surface` PASS
 - Home Phase 2 checks open: `docs/HOME-PHASE2.md`
-- **Next plan:** Phase 3 production proof and expansion gate — `docs/phase3-execution-plan.md` (plan only; awaiting user go)
+- **Phase 3 proof (remote + Electron smoke):** diagnostics/retry lifecycle, bounded interaction contracts, trust copy checks — `npm run verify:phase3-proof` PASS
+- Home Phase 3 live ledger open: `docs/HOME-PHASE3.md`
+- P3.7 expansion decision deferred until home evidence is recorded
+- Release checklist: `docs/RELEASE-CHECKLIST.md`
 
 ## Does not / deferred
 

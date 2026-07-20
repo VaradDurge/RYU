@@ -28,7 +28,7 @@ export function shouldPairWith(
 ): boolean
 export function computeInteractiveBounds(
   workArea: { x: number; y: number; width: number; height: number },
-  mode?: 'idle' | 'dock' | 'expanded'
+  mode?: 'idle' | 'dock' | 'attention' | 'expanded' | 'resolved' | 'unavailable'
 ): { x: number; y: number; width: number; height: number; mode: string }
 export function isLoopbackHost(host: string): boolean
 
@@ -38,6 +38,7 @@ export class RyuBridgeCore {
     token?: string
     requireAuth?: boolean
     headless?: boolean
+    homeDir?: string
     onEvent?: (event: RyuEvent) => void
     onCancel?: (id: string) => void
     onAgentStatus?: (update: AgentStatusUpdate) => void

@@ -40,6 +40,9 @@ export type ActionResult =
 
 export type BridgeHealthState = 'unknown' | 'started' | 'unavailable'
 
+/** Main-process bridge lifecycle (Electron wrapper). */
+export type BridgeLifecycle = 'stopped' | 'starting' | 'started' | 'unavailable'
+
 export type AgentIntegrationState = 'unknown' | 'active' | 'stale' | 'not-configured'
 
 export interface AgentStatusMeta {
@@ -56,6 +59,31 @@ export interface BridgeHealth {
   reason?: string | null
   startedAt?: number | null
   auth?: boolean
+  lifecycle?: BridgeLifecycle
+  retrying?: boolean
+  lastRetryAt?: number | null
+}
+
+/** Read-only diagnostics — never includes the bridge token. */
+export interface BridgeDiagnostics {
+  core: 'shared/bridge-core'
+  lifecycle: BridgeLifecycle
+  port: number
+  boundPort: number | null
+  revision: number
+  reason: string | null
+  startedAt: number | null
+  retrying: boolean
+  lastRetryAt: number | null
+  interactive: boolean | null
+  lastInteractiveBounds: {
+    x: number
+    y: number
+    width: number
+    height: number
+    mode: string
+  } | null
+  smoke: boolean
 }
 
 export interface BridgeSnapshot {

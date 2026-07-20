@@ -212,9 +212,11 @@ Do not implement until Phase 1 exit criteria and home checks are signed off.
 
 ---
 
-# Phase 3 — Production proof and expansion gate (actionable later)
+# Phase 3 — Production proof and expansion gate
 
-Do not start product feature expansion until this phase passes.
+**Status:** remote + Electron smoke via `npm run verify:phase3-proof` — see [`phase3-execution-plan.md`](./phase3-execution-plan.md). Home ledger + expansion decision still open.
+
+Do not start product feature expansion until home proof and P3.7 pass.
 
 | Action | Findings | User outcome |
 | --- | --- | --- |

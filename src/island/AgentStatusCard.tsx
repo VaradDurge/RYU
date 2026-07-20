@@ -19,15 +19,21 @@ export function AgentStatusCard({
   agent,
   status,
   summary,
-  bridgeUnavailable = false
+  bridgeUnavailable = false,
+  bridgeReason = null,
+  retrying = false,
+  onRetryBridge
 }: {
   agent: RyuAgent
   status: LiveAgentStatus
   summary?: string
   bridgeUnavailable?: boolean
+  bridgeReason?: string | null
+  retrying?: boolean
+  onRetryBridge?: () => void
 }) {
   return (
-    <div style={{ ...glassSurface(true), ...card }}>
+    <div style={{ ...glassSurface(true), ...card }} data-testid="agent-status-card">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <div style={{ position: 'relative', width: 28, height: 28 }}>
           <StatusRing status={status} size={28} />
@@ -52,9 +58,34 @@ export function AgentStatusCard({
       </div>
       <p style={{ margin: 0, color: theme.textDim, fontSize: 12.5, lineHeight: 1.45 }}>
         {bridgeUnavailable
-          ? 'Local bridge is not running on this machine. Start RYU or free port 41999.'
+          ? `Local bridge is not running on this machine${
+              bridgeReason ? ` (${bridgeReason})` : ''
+            }. Free port 41999, then retry.`
           : summary?.trim() || copy[status]}
       </p>
+      {bridgeUnavailable && onRetryBridge ? (
+        <button
+          type="button"
+          data-testid="retry-bridge"
+          disabled={retrying}
+          onClick={onRetryBridge}
+          style={{
+            marginTop: 12,
+            width: '100%',
+            border: `1px solid ${theme.glassBorder}`,
+            background: 'rgba(255,255,255,0.08)',
+            color: theme.text,
+            borderRadius: 12,
+            padding: '10px 12px',
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: retrying ? 'default' : 'pointer',
+            opacity: retrying ? 0.6 : 1
+          }}
+        >
+          {retrying ? 'Retrying…' : 'Retry bridge'}
+        </button>
+      ) : null}
     </div>
   )
 }

@@ -54,7 +54,9 @@ npm install
 npm run verify:track-a         # S1–S8 headless
 npm run verify:track-b         # S9–S12 + Track A gate
 npm run verify:phase1-remediation  # P1.1–P1.5 trust/recovery
-npm run verify:phase2-surface      # P2.1–P2.6 surface + Phase1/Track B gates (preferred remote gate)
+npm run verify:phase2-surface      # P2.1–P2.6 surface + Phase1/Track B gates
+npm run verify:phase3-proof        # P3.1–P3.6 Electron proof gate (preferred when Electron/display available)
+npm run verify:phase3-remote       # Phase 3 remote contracts only (not full Phase 3)
 npm run bridge:headless        # bridge only, no Electron
 npm run dev                    # needs display/Electron where available
 npm run verify:cursor-status   # needs bridge up
@@ -64,7 +66,7 @@ npm run verify:phase1
 ```
 
 Live Claude/Cursor Resume = human laptop checklist in `docs/RESUME.md` / `tasks/to-do.md` (home-only).  
-Phase 2 home UX: `docs/HOME-PHASE2.md`.
+Phase 2 home UX: `docs/HOME-PHASE2.md`. Phase 3 live ledger: `docs/HOME-PHASE3.md`.
 
 ## Done means
 

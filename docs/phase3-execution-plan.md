@@ -1,7 +1,8 @@
 # Phase 3 execution plan — production proof and expansion gate
 
-**Status:** plan only — do not implement until the user says go.  
-**Prerequisites:** Phase 1 remote gate and Phase 2 remote gate are green. Complete and record the relevant items in [`HOME-PHASE1.md`](./HOME-PHASE1.md) and [`HOME-PHASE2.md`](./HOME-PHASE2.md) during this phase.  
+**Status:** remote + Electron smoke implemented — `npm run verify:phase3-proof` PASS.  
+**Home validation:** [`HOME-PHASE3.md`](./HOME-PHASE3.md) (keep [`HOME-PHASE1.md`](./HOME-PHASE1.md) and [`HOME-PHASE2.md`](./HOME-PHASE2.md) open).  
+**P3.7:** write [`phase3-expansion-decision.md`](./phase3-expansion-decision.md) only after home evidence is recorded.  
 **Source:** [`core-loop-failure-analysis.md`](./core-loop-failure-analysis.md) F1, F2, F4, F5, F9–F11, F13 and F15; [`core-loop-remediation-plan.md`](./core-loop-remediation-plan.md).
 
 ## Why this Phase 3 is proof, not feature expansion

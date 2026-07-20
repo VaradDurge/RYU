@@ -27,5 +27,5 @@ Source of truth (long): `docs/product-and-feature-loops.md`
 | 0 | UX demo / harness | Yes (code + captures); eyes-on sign-off at home |
 | 1 | One agent real Resume | Bridge/hooks/verify yes; live Claude/Cursor no |
 | 2 | Queue + optional 2nd agent | Mostly yes (fixtures) |
-| 3 | Production proof + expansion decision | Electron smoke + home proof required |
-| 4–5 | Questions, trust, reach | Spec/tests yes; after Phase 3 gate |
+| 3 | Production proof + expansion decision | Electron smoke green remotely; home ledger + P3.7 still open |
+| 4–5 | Questions, trust, reach | Spec/tests yes; after Phase 3 home gate |
