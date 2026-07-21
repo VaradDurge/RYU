@@ -11,9 +11,10 @@
  * ignore: afterAgentResponse, postToolUse, afterShellExecution (prevents stuck green)
  */
 
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { ryuFetch } from './ryu-bridge-client.mjs'
 
 function log(line) {
   try {
@@ -23,21 +24,6 @@ function log(line) {
   } catch {
     // ignore
   }
-}
-
-function readPort() {
-  if (process.env.RYU_PORT) {
-    const n = Number(process.env.RYU_PORT)
-    if (Number.isFinite(n) && n > 0) return n
-  }
-  try {
-    const raw = readFileSync(join(homedir(), '.ryu', 'port'), 'utf8').trim()
-    const n = Number(raw)
-    if (Number.isFinite(n) && n > 0) return n
-  } catch {
-    // default
-  }
-  return 41999
 }
 
 async function readStdin() {
@@ -199,21 +185,13 @@ async function main() {
   }
 
   const detail = summarize(eventName, payload, status)
-  const port = readPort()
-  const url = `http://127.0.0.1:${port}/status`
-  const body = JSON.stringify({
-    agent: 'cursor',
-    status,
-    detail
-  })
 
   try {
     const ac = new AbortController()
     const t = setTimeout(() => ac.abort(), 1200)
-    const res = await fetch(url, {
+    const res = await ryuFetch('/status', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
+      body: { agent: 'cursor', status, detail },
       signal: ac.signal
     })
     clearTimeout(t)

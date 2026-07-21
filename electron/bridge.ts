@@ -1,232 +1,203 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
+import { RyuBridgeCore, DEFAULT_PORT, computeInteractiveBounds } from '../shared/bridge-core.mjs'
 import type {
   AgentStatusUpdate,
-  BridgeDecisionResponse,
-  RyuAgent,
+  BridgeDiagnostics,
+  BridgeLifecycle,
   RyuDecision,
   RyuEvent
 } from '../shared/types'
 
-const DEFAULT_PORT = 41999
-const DECISION_TIMEOUT_MS = 5 * 60 * 1000
+export { DEFAULT_PORT, computeInteractiveBounds }
 
-interface Waiter {
-  res: ServerResponse
-  timer: NodeJS.Timeout
-}
+const RETRY_COOLDOWN_MS = 1500
 
-interface Pending {
-  event: RyuEvent
-  waiters: Waiter[]
-}
-
+/**
+ * Electron wrapper around shared bridge core.
+ * UI notifications go through BrowserWindow IPC.
+ * Lifecycle: stopped → starting → started | unavailable → stopped
+ */
 export class RyuBridge {
-  private server: Server | null = null
-  private pending = new Map<string, Pending>()
-  private port = DEFAULT_PORT
+  private core: RyuBridgeCore | null = null
   private win: BrowserWindow | null = null
-  /** Last-known agent ring statuses (debug / GET /agents) */
-  private agentStatus: Record<RyuAgent, AgentStatusUpdate['status']> = {
-    cursor: 'idle',
-    claude: 'idle',
-    codex: 'idle'
-  }
+  private startError: string | null = null
+  private lifecycle: BridgeLifecycle = 'stopped'
+  private preferredPort = DEFAULT_PORT
+  private startedAt: number | null = null
+  private retrying = false
+  private lastRetryAt: number | null = null
+  private interactive: boolean | null = null
+  private lastInteractiveBounds: BridgeDiagnostics['lastInteractiveBounds'] = null
+  private readonly smoke = process.env.RYU_SMOKE === '1'
 
   attachWindow(win: BrowserWindow): void {
     this.win = win
   }
 
-  async start(preferredPort = DEFAULT_PORT): Promise<number> {
-    this.port = preferredPort
-    this.server = createServer((req, res) => {
-      void this.handle(req, res)
+  async start(preferredPort = Number(process.env.RYU_PORT) || DEFAULT_PORT): Promise<number> {
+    this.preferredPort = preferredPort
+    this.startError = null
+    this.lifecycle = 'starting'
+    this.core = new RyuBridgeCore({
+      port: preferredPort,
+      headless: false,
+      requireAuth: true,
+      onEvent: (event: RyuEvent) => {
+        this.win?.webContents.send('ryu:event', event)
+      },
+      onCancel: (id: string) => {
+        this.win?.webContents.send('ryu:cancel', id)
+      },
+      onAgentStatus: (update: AgentStatusUpdate) => {
+        this.win?.webContents.send('ryu:agentStatus', update)
+      }
     })
+    try {
+      const port = await this.core.start()
+      this.lifecycle = 'started'
+      this.startedAt = Date.now()
+      this.startError = null
+      this.notifyHealth()
+      return port
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code
+      this.startError = code || (err as Error)?.message || 'start_failed'
+      this.lifecycle = 'unavailable'
+      this.core = null
+      this.notifyHealth()
+      throw err
+    }
+  }
 
-    await new Promise<void>((resolve, reject) => {
-      this.server!.once('error', reject)
-      this.server!.listen(this.port, '127.0.0.1', () => resolve())
-    })
-
-    this.writeConfigFiles(this.port)
-    return this.port
+  /**
+   * Retry binding the same configured loopback port only.
+   * Rate-limited; never falls back to a random port.
+   */
+  async retryStart(): Promise<{ ok: boolean; reason?: string; port?: number }> {
+    if (this.retrying) return { ok: false, reason: 'retry_in_progress' }
+    if (this.lifecycle === 'started' && this.core) {
+      return { ok: true, port: this.preferredPort }
+    }
+    const now = Date.now()
+    if (this.lastRetryAt && now - this.lastRetryAt < RETRY_COOLDOWN_MS) {
+      return { ok: false, reason: 'retry_cooldown' }
+    }
+    this.retrying = true
+    this.lastRetryAt = now
+    this.notifyHealth()
+    try {
+      this.core?.stop()
+      this.core = null
+      const port = await this.start(this.preferredPort)
+      return { ok: true, port }
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code
+      return { ok: false, reason: code || (err as Error)?.message || 'start_failed' }
+    } finally {
+      this.retrying = false
+      this.notifyHealth()
+    }
   }
 
   stop(): void {
-    for (const [, pending] of this.pending) {
-      for (const waiter of pending.waiters) {
-        clearTimeout(waiter.timer)
-        this.respondFailOpen(waiter.res)
-      }
-    }
-    this.pending.clear()
-    this.server?.close()
-    this.server = null
+    this.core?.stop()
+    this.core = null
+    this.lifecycle = 'stopped'
+    this.notifyHealth()
   }
 
-  resolveDecision(decision: RyuDecision): boolean {
-    const item = this.pending.get(decision.id)
-    if (!item) {
-      console.warn(`[ryu] decision for unknown id ${decision.id}`)
-      return false
+  setInteractiveState(
+    interactive: boolean,
+    bounds: BridgeDiagnostics['lastInteractiveBounds'] = null
+  ): void {
+    this.interactive = interactive
+    if (bounds) this.lastInteractiveBounds = bounds
+    if (this.smoke || process.env.NODE_ENV === 'development') {
+      const b = bounds
+        ? `${b.mode}:${b.width}x${b.height}@${b.x},${b.y}`
+        : 'none'
+      console.log(`[ryu:diag] interactive=${interactive} bounds=${b}`)
     }
+  }
 
-    const payload = {
-      status: decision.decision,
-      decision
-    } satisfies BridgeDecisionResponse
-
-    for (const waiter of item.waiters) {
-      clearTimeout(waiter.timer)
-      this.json(waiter.res, 200, payload)
+  getSnapshot() {
+    if (this.core) {
+      const snap = this.core.getSnapshot()
+      return {
+        ...snap,
+        health: {
+          ...snap.health,
+          bridge: 'started' as const,
+          lifecycle: this.lifecycle,
+          retrying: this.retrying,
+          lastRetryAt: this.lastRetryAt
+        }
+      }
     }
+    return {
+      revision: 0,
+      events: [] as RyuEvent[],
+      ids: [] as string[],
+      agents: { cursor: 'idle' as const, claude: 'idle' as const, codex: 'idle' as const },
+      agentMeta: {
+        cursor: { revision: 0, lastSeenAt: 0, integration: 'unknown' as const },
+        claude: { revision: 0, lastSeenAt: 0, integration: 'unknown' as const },
+        codex: { revision: 0, lastSeenAt: 0, integration: 'unknown' as const }
+      },
+      health: {
+        bridge: 'unavailable' as const,
+        port: this.preferredPort,
+        reason: this.startError || 'not_started',
+        startedAt: this.startedAt,
+        lifecycle: this.lifecycle === 'stopped' ? ('unavailable' as const) : this.lifecycle,
+        retrying: this.retrying,
+        lastRetryAt: this.lastRetryAt
+      }
+    }
+  }
 
-    this.pending.delete(decision.id)
-    console.log(`[ryu] decision ${decision.decision} id=${decision.id}`)
+  /** Read-only diagnostics — never includes the token. */
+  getDiagnostics(): BridgeDiagnostics {
+    const snap = this.getSnapshot()
+    return {
+      core: 'shared/bridge-core',
+      lifecycle: this.lifecycle,
+      port: this.preferredPort,
+      boundPort: this.lifecycle === 'started' ? this.preferredPort : null,
+      revision: snap.revision,
+      reason: snap.health?.reason ?? this.startError,
+      startedAt: this.startedAt,
+      retrying: this.retrying,
+      lastRetryAt: this.lastRetryAt,
+      interactive: this.interactive,
+      lastInteractiveBounds: this.lastInteractiveBounds,
+      smoke: this.smoke
+    }
+  }
+
+  getToken(): string {
+    return this.core?.getToken() || ''
+  }
+
+  usesSharedCore(): boolean {
     return true
   }
 
-  private dropWaiter(id: string, res: ServerResponse): void {
-    const item = this.pending.get(id)
-    if (!item) return
-
-    item.waiters = item.waiters.filter((waiter) => {
-      if (waiter.res === res) clearTimeout(waiter.timer)
-      return waiter.res !== res
-    })
-
-    if (item.waiters.length > 0) return
-
-    this.pending.delete(id)
-    this.win?.webContents.send('ryu:cancel', id)
+  resolveDecision(decision: RyuDecision): { ok: boolean; reason?: string } {
+    if (!this.core) return { ok: false, reason: 'unavailable' }
+    return this.core.resolveDecision(decision)
   }
 
-  private writeConfigFiles(port: number): void {
-    const dir = join(homedir(), '.ryu')
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, 'port'), String(port), 'utf8')
-    writeFileSync(join(dir, 'host'), '127.0.0.1', 'utf8')
+  dismiss(id: string): { ok: boolean; reason?: string } {
+    if (!this.core) return { ok: false, reason: 'unavailable' }
+    return this.core.dismiss(id)
   }
 
-  private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    if (req.method === 'GET' && req.url === '/health') {
-      this.json(res, 200, { ok: true, port: this.port })
-      return
+  private notifyHealth(): void {
+    try {
+      this.win?.webContents.send('ryu:health', this.getSnapshot().health)
+    } catch {
+      // window may be gone
     }
-
-    if (req.method === 'GET' && req.url === '/pending') {
-      this.json(res, 200, {
-        ids: [...this.pending.keys()],
-        events: [...this.pending.values()].map((p) => p.event)
-      })
-      return
-    }
-
-    if (req.method === 'GET' && req.url === '/agents') {
-      this.json(res, 200, { agents: this.agentStatus })
-      return
-    }
-
-    if (req.method === 'POST' && req.url === '/event') {
-      const body = await this.readBody(req)
-      let event: RyuEvent
-      try {
-        event = JSON.parse(body) as RyuEvent
-      } catch {
-        this.json(res, 400, { error: 'invalid json' })
-        return
-      }
-
-      if (!event?.id || !event.preview) {
-        this.json(res, 400, { error: 'missing id or preview' })
-        return
-      }
-
-      const timer = setTimeout(() => {
-        const item = this.pending.get(event.id)
-        if (!item) return
-        for (const waiter of item.waiters) {
-          clearTimeout(waiter.timer)
-          this.respondFailOpen(waiter.res)
-        }
-        this.pending.delete(event.id)
-        console.log(`[ryu] timeout fail-open id=${event.id}`)
-      }, DECISION_TIMEOUT_MS)
-
-      const existing = this.pending.get(event.id)
-      if (existing) {
-        existing.waiters.push({ res, timer })
-        req.on('close', () => this.dropWaiter(event.id, res))
-        return
-      }
-
-      this.pending.set(event.id, {
-        event,
-        waiters: [{ res, timer }]
-      })
-      req.on('close', () => this.dropWaiter(event.id, res))
-      this.win?.webContents.send('ryu:event', event)
-      return
-    }
-
-    if (req.method === 'POST' && req.url === '/decision') {
-      const body = await this.readBody(req)
-      let decision: RyuDecision
-      try {
-        decision = JSON.parse(body) as RyuDecision
-      } catch {
-        this.json(res, 400, { error: 'invalid json' })
-        return
-      }
-      const ok = this.resolveDecision(decision)
-      this.json(res, ok ? 200 : 404, { ok })
-      return
-    }
-
-    // Live agent ring status (Cursor hooks → green while working)
-    if (req.method === 'POST' && req.url === '/status') {
-      const body = await this.readBody(req)
-      let update: AgentStatusUpdate
-      try {
-        update = JSON.parse(body) as AgentStatusUpdate
-      } catch {
-        this.json(res, 400, { error: 'invalid json' })
-        return
-      }
-      const agents: RyuAgent[] = ['claude', 'codex', 'cursor']
-      const statuses = ['idle', 'running', 'approval', 'error'] as const
-      if (!agents.includes(update.agent) || !statuses.includes(update.status as (typeof statuses)[number])) {
-        this.json(res, 400, { error: 'invalid agent or status' })
-        return
-      }
-      this.agentStatus[update.agent] = update.status
-      this.win?.webContents.send('ryu:agentStatus', update)
-      this.json(res, 200, { ok: true, agents: this.agentStatus })
-      return
-    }
-
-    this.json(res, 404, { error: 'not found' })
-  }
-
-  private respondFailOpen(res: ServerResponse): void {
-    this.json(res, 200, { status: 'timeout' } satisfies BridgeDecisionResponse)
-  }
-
-  private json(res: ServerResponse, code: number, payload: unknown): void {
-    if (res.writableEnded) return
-    res.writeHead(code, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify(payload))
-  }
-
-  private readBody(req: IncomingMessage): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = []
-      req.on('data', (c) => chunks.push(Buffer.from(c)))
-      req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
-      req.on('error', reject)
-    })
   }
 }

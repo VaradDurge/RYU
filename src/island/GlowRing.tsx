@@ -6,7 +6,8 @@ const COLORS: Record<LiveAgentStatus, string> = {
   idle: 'rgba(10, 132, 255, 0.75)',
   running: 'rgba(48, 209, 88, 0.95)',
   approval: 'rgba(255, 214, 10, 0.85)',
-  error: 'rgba(255, 69, 58, 0.85)'
+  error: 'rgba(255, 69, 58, 0.85)',
+  stale: 'rgba(142, 142, 147, 0.9)'
 }
 
 /**

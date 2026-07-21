@@ -7,20 +7,16 @@
 import { spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { authHeaders, BASE, sleep } from './ryu-test-util.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const hookPath = resolve(__dirname, '../hooks/ryu-hook.mjs')
-const BASE = 'http://127.0.0.1:41999'
-
-async function sleep(ms) {
-  await new Promise((r) => setTimeout(r, ms))
-}
 
 async function roundtrip(agent, preview, tool = 'Bash') {
   const id = crypto.randomUUID()
   const eventP = fetch(`${BASE}/event`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({
       id,
       agent,
@@ -36,7 +32,7 @@ async function roundtrip(agent, preview, tool = 'Bash') {
   await sleep(200)
   const decide = await fetch(`${BASE}/decision`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({ id, decision: 'allow', reason: `verify-${agent}` })
   }).then((r) => r.json())
   const eventRes = await eventP
@@ -80,7 +76,7 @@ async function main() {
   let pendingId = null
   for (let i = 0; i < 40; i++) {
     await sleep(100)
-    const pending = await fetch(`${BASE}/pending`).then((r) => r.json())
+    const pending = await fetch(`${BASE}/pending`, { headers: authHeaders() }).then((r) => r.json())
     if (pending.ids?.length) {
       pendingId = pending.ids[0]
       break
@@ -93,7 +89,7 @@ async function main() {
 
   await fetch(`${BASE}/decision`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({ id: pendingId, decision: 'deny', reason: 'verify-deny' })
   })
 

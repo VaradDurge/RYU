@@ -118,6 +118,10 @@ Trust hooks in Codex if prompted (`/hooks`). Permission → dock (Codex icon) �
 | `npm run hook:install:codex` | Codex PermissionRequest + PreToolUse |
 | `npm run verify:phase1` | Bridge roundtrips (Cursor/Codex/Claude) + Claude hook |
 | `npm run verify:claude-resume` | Claude Resume path (allow / dual-waiter / deny / fail-open) |
+| `npm run verify:track-a` | Headless S1–S8 contract suite (no Electron / no live agents) |
+| `npm run verify:track-b` | Headless S9–S12 (queue/dismiss/Codex/watchdog) + Track A gate |
+| `npm run verify:phase1-remediation` | Phase 1 trust/recovery contracts (snapshot, ack, pairing, auth) |
+| `npm run bridge:headless` | Bridge HTTP only on `:41999` (for verifies) |
 | `node scripts/ryu-cursor-acp.mjs` | Cursor CLI ACP ↔ RYU |
 | `npm run capture:demo` | Windows dock screenshots |
 
@@ -127,6 +131,7 @@ Bridge: `127.0.0.1:41999` · `~/.ryu/port` · `GET /agents` for live ring state
 
 ## Docs
 
+- Agents: [`AGENTS.md`](./AGENTS.md) · memory [`memory/index.md`](./memory/index.md) · plan [`tasks/to-do.md`](./tasks/to-do.md) · lessons [`lessons/index.md`](./lessons/index.md) · external research [`references/index.md`](./references/index.md)
 - Product loops: [`docs/product-and-feature-loops.md`](./docs/product-and-feature-loops.md)  
 - UI source of truth: [`docs/parallel-work-split.md`](./docs/parallel-work-split.md) §6  
 - Mac shell (notch / notice window): [`diff/mac/README.md`](./diff/mac/README.md) — status pipeline was ported to Windows; Mac-only chrome stays under `diff/mac/`

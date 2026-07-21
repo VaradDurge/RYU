@@ -1,57 +1,21 @@
 import { useCallback, useReducer } from 'react'
-import type { IslandMode, RyuDecision, RyuEvent } from '../../shared/types'
+import type { RyuDecision, RyuEvent } from '../../shared/types'
+import { reduceIsland, initialIslandState } from '../../shared/island-reducer.mjs'
 
-export interface IslandState {
-  mode: IslandMode
-  current: RyuEvent | null
-  lastDecision: RyuDecision['decision'] | null
-}
-
-type Action =
-  | { type: 'event'; event: RyuEvent }
-  | { type: 'expand' }
-  | { type: 'collapse' }
-  | { type: 'resolved'; decision: RyuDecision['decision'] }
-  | { type: 'idle' }
-
-const initial: IslandState = {
-  mode: 'idle',
-  current: null,
-  lastDecision: null
-}
-
-function reducer(state: IslandState, action: Action): IslandState {
-  switch (action.type) {
-    case 'event':
-      return {
-        mode: 'attention',
-        current: action.event,
-        lastDecision: null
-      }
-    case 'expand':
-      if (!state.current) return state
-      return { ...state, mode: 'expanded' }
-    case 'collapse':
-      if (state.mode === 'expanded') return { ...state, mode: 'attention' }
-      return state
-    case 'resolved':
-      return {
-        ...state,
-        mode: 'resolved',
-        lastDecision: action.decision
-      }
-    case 'idle':
-      return initial
-    default:
-      return state
-  }
-}
+export type IslandState = typeof initialIslandState
 
 export function useIsland() {
-  const [state, dispatch] = useReducer(reducer, initial)
+  const [state, dispatch] = useReducer(
+    (s: IslandState, a: Parameters<typeof reduceIsland>[1]) => reduceIsland(s, a),
+    initialIslandState
+  )
 
   const ingestEvent = useCallback((event: RyuEvent) => {
     dispatch({ type: 'event', event })
+  }, [])
+
+  const hydrate = useCallback((events: RyuEvent[]) => {
+    dispatch({ type: 'hydrate', events })
   }, [])
 
   const expand = useCallback(() => dispatch({ type: 'expand' }), [])
@@ -61,7 +25,28 @@ export function useIsland() {
     dispatch({ type: 'resolved', decision })
   }, [])
 
+  const advance = useCallback(() => dispatch({ type: 'advance' }), [])
+  const drop = useCallback((id: string) => dispatch({ type: 'drop', id }), [])
   const goIdle = useCallback(() => dispatch({ type: 'idle' }), [])
+  const beginAction = useCallback(() => dispatch({ type: 'actionStart' }), [])
+  const failAction = useCallback((reason: string) => {
+    dispatch({ type: 'actionFail', reason })
+  }, [])
 
-  return { state, ingestEvent, expand, collapse, resolve, goIdle }
+  const waitingCount = (state.current ? 1 : 0) + state.queue.length
+
+  return {
+    state,
+    waitingCount,
+    ingestEvent,
+    hydrate,
+    expand,
+    collapse,
+    resolve,
+    advance,
+    drop,
+    goIdle,
+    beginAction,
+    failAction
+  }
 }

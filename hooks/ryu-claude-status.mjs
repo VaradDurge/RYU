@@ -7,9 +7,10 @@
  * Logs to ~/.ryu/claude-hook.log
  */
 
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { ryuFetch, readLoopbackHost } from './ryu-bridge-client.mjs'
 
 function log(line) {
   try {
@@ -19,32 +20,6 @@ function log(line) {
   } catch {
     // ignore
   }
-}
-
-function readPort() {
-  if (process.env.RYU_PORT) {
-    const n = Number(process.env.RYU_PORT)
-    if (Number.isFinite(n) && n > 0) return n
-  }
-  try {
-    const raw = readFileSync(join(homedir(), '.ryu', 'port'), 'utf8').trim()
-    const n = Number(raw)
-    if (Number.isFinite(n) && n > 0) return n
-  } catch {
-    // default
-  }
-  return 41999
-}
-
-function readHost() {
-  if (process.env.RYU_HOST?.trim()) return process.env.RYU_HOST.trim()
-  try {
-    const raw = readFileSync(join(homedir(), '.ryu', 'host'), 'utf8').trim()
-    if (raw) return raw
-  } catch {
-    // ignore
-  }
-  return '127.0.0.1'
 }
 
 async function readStdin() {
@@ -168,22 +143,17 @@ async function main() {
   }
 
   const detail = summarize(eventName, payload, status)
-  const port = readPort()
-  const host = readHost()
-  const url = `http://${host}:${port}/status`
-  const body = JSON.stringify({
-    agent: 'claude',
-    status,
-    detail
-  })
+  if (!readLoopbackHost()) {
+    log(`${eventName} → ${status} FAIL non-loopback host`)
+    process.exit(0)
+  }
 
   try {
     const ac = new AbortController()
     const t = setTimeout(() => ac.abort(), 1200)
-    const res = await fetch(url, {
+    const res = await ryuFetch('/status', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
+      body: { agent: 'claude', status, detail },
       signal: ac.signal
     })
     clearTimeout(t)

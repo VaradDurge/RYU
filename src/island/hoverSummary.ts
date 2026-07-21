@@ -23,6 +23,8 @@ export function fallbackSummary(agent: RyuAgent, status: LiveAgentStatus): strin
       return `${name} · Needs approval`
     case 'error':
       return `${name} · Error`
+    case 'stale':
+      return `${name} · Status stale`
   }
 }
 

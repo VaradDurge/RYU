@@ -8,37 +8,9 @@
 import { spawnSync } from 'node:child_process'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { get, post, BASE } from './ryu-test-util.mjs'
 
-const BASE = 'http://127.0.0.1:41999'
 const hookPath = resolve(dirname(fileURLToPath(import.meta.url)), '../hooks/ryu-cursor-status.mjs')
-
-async function get(path) {
-  const res = await fetch(`${BASE}${path}`)
-  const text = await res.text()
-  let json
-  try {
-    json = JSON.parse(text)
-  } catch {
-    json = text
-  }
-  return { ok: res.ok, status: res.status, json }
-}
-
-async function post(path, body) {
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
-  const text = await res.text()
-  let json
-  try {
-    json = JSON.parse(text)
-  } catch {
-    json = text
-  }
-  return { ok: res.ok, status: res.status, json }
-}
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg)
@@ -58,6 +30,20 @@ async function main() {
 
   const agents1 = await get('/agents')
   assert(agents1.json?.agents?.cursor === 'running', 'GET /agents cursor !== running')
+
+  const approval = await post('/status', {
+    agent: 'cursor',
+    status: 'approval',
+    detail: 'Cursor · Needs approval'
+  })
+  assert(approval.ok && approval.json?.agents?.cursor === 'approval', 'cursor approval status')
+
+  const error = await post('/status', {
+    agent: 'cursor',
+    status: 'error',
+    detail: 'Cursor · Error'
+  })
+  assert(error.ok && error.json?.agents?.cursor === 'error', 'cursor error status')
 
   const idle = await post('/status', {
     agent: 'cursor',

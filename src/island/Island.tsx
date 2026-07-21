@@ -4,7 +4,6 @@ import type { IslandMode, RyuAgent, RyuEvent } from '../../shared/types'
 import { theme } from '../theme'
 import {
   interactiveEnter,
-  interactiveForce,
   interactiveLeave
 } from '../lib/interactiveHover'
 import { AgentDock } from './AgentDock'
@@ -21,19 +20,33 @@ const LEAVE_GRACE_MS = 220
 export function Island({
   mode,
   event,
+  waitingCount = 0,
   lastDecision,
+  actionPending = false,
+  actionError = null,
   onExpand,
   onAllow,
   onDeny,
-  onHoverChange
+  onDismiss,
+  onHoverChange,
+  bridgeReason = null,
+  bridgeRetrying = false,
+  onRetryBridge
 }: {
   mode: IslandMode
   event: RyuEvent | null
+  waitingCount?: number
   lastDecision: 'allow' | 'deny' | null
+  actionPending?: boolean
+  actionError?: string | null
   onExpand: () => void
   onAllow: () => void
   onDeny: () => void
+  onDismiss?: () => void
   onHoverChange: (hovering: boolean) => void
+  bridgeReason?: string | null
+  bridgeRetrying?: boolean
+  onRetryBridge?: () => void
 }) {
   const reduce = useReducedMotion()
   const [topHover, setTopHover] = useState(false)
@@ -41,12 +54,13 @@ export function Island({
   const leaveTimer = useRef<number | null>(null)
   const insideRef = useRef(false)
 
-  const { statuses, summaries } = useAgentStatuses(mode, event, lastDecision)
+  const { statuses, summaries, health } = useAgentStatuses(mode, event, lastDecision)
   const ambient = anyAgentActive(statuses)
+  const bridgeUnavailable = health.bridge === 'unavailable'
 
   const pendingAttention = mode === 'attention'
   const lockedOpen = mode === 'expanded' || mode === 'resolved'
-  const showDock = topHover || lockedOpen || pendingAttention || ambient
+  const showDock = topHover || lockedOpen || pendingAttention || ambient || bridgeUnavailable
   const showPermissionCard = mode === 'expanded' && Boolean(event)
   const showStatusCard =
     Boolean(selectedAgent) &&
@@ -55,24 +69,22 @@ export function Island({
     !(event && selectedAgent === event.agent && (mode === 'attention' || mode === 'expanded'))
   const showResolvedInDock = mode === 'resolved' && Boolean(lastDecision)
 
+  // P1.4: never force full-window mouse capture for attention/expanded.
+  // Hover enter/leave on dock/card keeps click-through outside the island.
   useEffect(() => {
-    const needsClicks =
-      mode === 'expanded' || mode === 'resolved' || mode === 'attention' || showStatusCard
-    interactiveForce(needsClicks)
-    onHoverChange(needsClicks || insideRef.current)
-    return () => interactiveForce(false)
+    onHoverChange(insideRef.current)
   }, [mode, onHoverChange, showStatusCard])
 
+  // P2.1: compact Attention only — do not auto-expand the permission card.
   useEffect(() => {
     if (mode === 'attention' && event) {
       setSelectedAgent(event.agent)
-      onExpand()
     }
-  }, [mode, event, onExpand])
+  }, [mode, event])
 
   useEffect(() => {
-    if (mode === 'idle' && !ambient) setSelectedAgent(null)
-  }, [mode, ambient])
+    if (mode === 'idle' && !ambient && !bridgeUnavailable) setSelectedAgent(null)
+  }, [mode, ambient, bridgeUnavailable])
 
   const setHovering = (next: boolean) => {
     if (leaveTimer.current) {
@@ -105,13 +117,15 @@ export function Island({
     return () => {
       if (leaveTimer.current) window.clearTimeout(leaveTimer.current)
       if (insideRef.current) interactiveLeave()
-      interactiveForce(false)
     }
   }, [])
 
   const onSelectAgent = (agent: RyuAgent) => {
     setSelectedAgent(agent)
-    if (event && event.agent === agent) onExpand()
+    // Deliberate expand: click/keyboard on the requesting agent opens Understand.
+    if (event && event.agent === agent && (mode === 'attention' || mode === 'expanded')) {
+      onExpand()
+    }
   }
 
   return (
@@ -156,7 +170,6 @@ export function Island({
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
         onMouseDown={() => {
-          interactiveForce(true)
           onHoverChange(true)
         }}
       >
@@ -223,7 +236,15 @@ export function Island({
                         pointerEvents: 'auto'
                       }}
                     >
-                      <Expanded event={event} onAllow={onAllow} onDeny={onDeny} />
+                      <Expanded
+                        event={event}
+                        waitingCount={waitingCount}
+                        actionPending={actionPending}
+                        actionError={actionError}
+                        onAllow={onAllow}
+                        onDeny={onDeny}
+                        onDismiss={onDismiss}
+                      />
                     </div>
                   </motion.div>
                 )}
@@ -256,6 +277,10 @@ export function Island({
                       agent={selectedAgent}
                       status={statuses[selectedAgent]}
                       summary={summaries[selectedAgent]}
+                      bridgeUnavailable={bridgeUnavailable}
+                      bridgeReason={bridgeReason}
+                      retrying={bridgeRetrying}
+                      onRetryBridge={onRetryBridge}
                     />
                   </motion.div>
                 )}
