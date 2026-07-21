@@ -24,6 +24,8 @@ Statuses: `todo` · `doing` · `blocked` · `done` · `later`
 - [x] Create Phase 3 production-proof plan + model handoff → `docs/phase3-execution-plan.md`
 - [x] User reviews/approves Phase 3 proof scope → then implement P3.1–P3.6
 - [x] Implement Phase 3 P3.1–P3.6 + verify:phase3-proof
+- [x] Create home live execution plan (WSL Claude ↔ Windows RYU) → `docs/home-live-execution-plan.md`
+- [ ] User/local agent executes home live plan (H0–H6)
 - [ ] Home Phase 1 checks (`docs/HOME-PHASE1.md`) when back at laptop
 - [ ] Home Phase 2 checks (`docs/HOME-PHASE2.md`) when back at laptop
 - [ ] Home Phase 3 live ledger (`docs/HOME-PHASE3.md`) when back at laptop

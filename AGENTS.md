@@ -66,7 +66,8 @@ npm run verify:phase1
 ```
 
 Live Claude/Cursor Resume = human laptop checklist in `docs/RESUME.md` / `tasks/to-do.md` (home-only).  
-Phase 2 home UX: `docs/HOME-PHASE2.md`. Phase 3 live ledger: `docs/HOME-PHASE3.md`.
+Phase 2 home UX: `docs/HOME-PHASE2.md`. Phase 3 live ledger: `docs/HOME-PHASE3.md`.  
+**Home live runbook:** `docs/home-live-execution-plan.md` (WSL Claude ↔ Windows RYU).
 
 ## Done means
 

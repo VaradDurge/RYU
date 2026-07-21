@@ -22,6 +22,7 @@ Last touch: 2026-07-20 · detail: `UPDATES.md`
 - Home Phase 2 checks open: `docs/HOME-PHASE2.md`
 - **Phase 3 proof (remote + Electron smoke):** diagnostics/retry lifecycle, bounded interaction contracts, trust copy checks — `npm run verify:phase3-proof` PASS
 - Home Phase 3 live ledger open: `docs/HOME-PHASE3.md`
+- **Home live plan:** `docs/home-live-execution-plan.md` (WSL Claude ↔ Windows RYU; awaiting local execution)
 - P3.7 expansion decision deferred until home evidence is recorded
 - Release checklist: `docs/RELEASE-CHECKLIST.md`
 
