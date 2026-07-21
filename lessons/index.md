@@ -14,6 +14,7 @@ Compound failures/wins. One short file per lesson. Link from here.
 | 2026-07-20 | Unique id + constrained pairKey | `lessons/2026-07-20-unique-id-plus-pairkey.md` |
 | 2026-07-20 | Watchdog → stale, never false idle | `lessons/2026-07-20-stale-not-false-idle.md` |
 | 2026-07-20 | Electron smoke ≠ headless contract | `lessons/2026-07-20-electron-smoke-not-headless.md` |
+| 2026-07-21 | WSL hooks: Windows node needs Windows paths | `lessons/2026-07-21-wsl-hook-windows-paths.md` |
 
 ## How to add
 

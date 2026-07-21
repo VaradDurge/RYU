@@ -36,6 +36,23 @@ function toWslPath(absWinPath) {
   return `/mnt/${match[1].toLowerCase()}/${match[2]}`
 }
 
+/**
+ * Windows node.exe does not understand /mnt/c/... paths.
+ * Hook script args must be Windows paths (C:\...), while the command
+ * itself is the WSL-visible /mnt/c/.../node.exe so Claude-in-WSL can exec it.
+ */
+function toWindowsPath(absPath) {
+  const normalized = String(absPath).replace(/\\/g, '/')
+  if (normalized.startsWith('/mnt/')) {
+    const match = normalized.match(/^\/mnt\/([a-zA-Z])\/(.*)$/)
+    if (!match) return absPath
+    return `${match[1].toUpperCase()}:\\${match[2].replace(/\//g, '\\')}`
+  }
+  const match = normalized.match(/^([A-Za-z]):\/(.*)$/)
+  if (match) return `${match[1].toUpperCase()}:\\${match[2].replace(/\//g, '\\')}`
+  return absPath
+}
+
 function resolveWindowsNode(preferred) {
   const candidates = [
     toWslPath(preferred),
@@ -97,11 +114,14 @@ if (existsSync(settingsPath)) {
 
 const settings = loadSettings()
 const nodePath = resolveWindowsNode(winNodePath)
-const permPath = toWslPath(winPermPath)
-const statusPath = toWslPath(winStatusPath)
+const permPathWsl = toWslPath(winPermPath)
+const statusPathWsl = toWslPath(winStatusPath)
+// Args for Windows node.exe — must be C:\... not /mnt/c/...
+const permPathWin = toWindowsPath(winPermPath)
+const statusPathWin = toWindowsPath(winStatusPath)
 
-if (!existsSync(permPath) || !existsSync(statusPath)) {
-  console.error(`[ryu:wsl] Hook missing: perm=${permPath} status=${statusPath}`)
+if (!existsSync(permPathWsl) || !existsSync(statusPathWsl)) {
+  console.error(`[ryu:wsl] Hook missing: perm=${permPathWsl} status=${statusPathWsl}`)
   process.exit(1)
 }
 
@@ -110,25 +130,39 @@ if (!settings.hooks) settings.hooks = {}
 for (const eventName of STATUS_EVENTS) {
   settings.hooks[eventName] = scrubRyu(settings.hooks[eventName])
   settings.hooks[eventName].push({
-    hooks: [statusCmd(nodePath, statusPath, eventName)]
+    hooks: [statusCmd(nodePath, statusPathWin, eventName)]
   })
 }
 
 settings.hooks.PostToolUse = scrubRyu(settings.hooks.PostToolUse)
 settings.hooks.PostToolUse.push({
   matcher: '.*',
-  hooks: [statusCmd(nodePath, statusPath, 'PostToolUse')]
+  hooks: [statusCmd(nodePath, statusPathWin, 'PostToolUse')]
 })
 
 for (const eventName of ['PreToolUse', 'PermissionRequest']) {
   settings.hooks[eventName] = scrubRyu(settings.hooks[eventName])
   settings.hooks[eventName].push({
     matcher: 'Bash|Write|Edit',
-    hooks: [statusCmd(nodePath, statusPath, eventName), permCmd(nodePath, permPath)]
+    hooks: [statusCmd(nodePath, statusPathWin, eventName), permCmd(nodePath, permPathWin)]
   })
 }
 
 writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8')
+
+// Prove Windows node can load the ESM hook with a Windows path (the SessionStart failure mode).
+const loadProbe = spawnSync(nodePath, [statusPathWin, 'SessionStart'], {
+  encoding: 'utf8',
+  timeout: 8000,
+  input: '{}'
+})
+if (loadProbe.status === 0) {
+  console.log('[ryu:wsl] Status hook loads under Windows node (SessionStart smoke OK)')
+} else {
+  console.log('[ryu:wsl] Warning: status hook failed under Windows node — check paths')
+  if (loadProbe.stderr) console.log(`[ryu:wsl] ${loadProbe.stderr.trim().slice(0, 400)}`)
+  if (loadProbe.stdout) console.log(`[ryu:wsl] ${loadProbe.stdout.trim().slice(0, 200)}`)
+}
 
 const probe = spawnSync(
   nodePath,
@@ -141,12 +175,12 @@ const probe = spawnSync(
 if (probe.status === 0) {
   console.log(`[ryu:wsl] Bridge reachable via Windows node: ${probe.stdout.trim()}`)
 } else {
-  console.log('[ryu:wsl] Warning: bridge not reachable yet — start RYU (`npm run dev`) before Claude.')
+  console.log('[ryu:wsl] Warning: bridge not reachable yet — start RYU on Windows (`npm run dev`) before Claude.')
   if (probe.stderr) console.log(`[ryu:wsl] ${probe.stderr.trim()}`)
 }
 
 console.log(`[ryu:wsl] Installed Claude status + permission → ${settingsPath}`)
-console.log(`[ryu:wsl] node: ${nodePath}`)
-console.log(`[ryu:wsl] permission: ${permPath}`)
-console.log(`[ryu:wsl] status: ${statusPath}`)
+console.log(`[ryu:wsl] node (exec from WSL): ${nodePath}`)
+console.log(`[ryu:wsl] permission (Windows path for node.exe): ${permPathWin}`)
+console.log(`[ryu:wsl] status (Windows path for node.exe): ${statusPathWin}`)
 console.log('[ryu:wsl] Restart Claude Code in WSL after install.')
